@@ -4,70 +4,96 @@ using UnityEngine;
 
 public class InverseLegKinematic : MonoBehaviour
 {
+    // if ik active
     public bool isActive = false;
 
+    // check which leg need to do what to alternate
     public bool lLeg = false;
     public bool rLeg = false;
 
+    // positions for the ik to go
     public GameObject lTarget;
     public GameObject rTarget;
 
+    // hints for the bends
+    public GameObject lHint;
+    public GameObject rHint;
+
+    // root bones
     [SerializeField] private GameObject mainHip;
     [SerializeField] private GameObject root;
 
+    // bone chainess
     public GameObject[] leftLegChain;
     public GameObject[] rightLegChain;
 
-    public float distanceL;
-    public float distanceR;
+    // every bone length
+    public float[] boneLengthL;
+    public float[] boneLengthR;
 
-    // Start is called before the first frame update
-    void Start()
-    {
-
-    }
-
-    public float getLength(GameObject[] chain)
-    {
-        float length = 0;
-
-        for (int i = 0; i < chain.Length - 1; i++)
-        {
-            length += Vector3.Distance(chain[i].transform.position, chain[i + 1].transform.position);
-        }
-
-        return length;
-    }
+    // total bone length
+    public float maxDistanceL;
+    public float maxDistanceR;
 
     private void Awake()
     {
-        // get all leg chains
-        leftLegChain = twoBoneIKChainList(mainHip.transform.GetChild(0).gameObject);
-        rightLegChain = twoBoneIKChainList(mainHip.transform.GetChild(1).gameObject);
+        // create all leg chains
+        leftLegChain = TwoBoneIKChainList(mainHip.transform.GetChild(0).gameObject);
+        rightLegChain = TwoBoneIKChainList(mainHip.transform.GetChild(1).gameObject);
 
-        // get their default max length to maybe save processing power
-        distanceL = getLength(leftLegChain);
-        distanceR = getLength(rightLegChain);
+        // get their default length to maybe save processing power in the future
+        boneLengthL = getBoneLengths(leftLegChain);
+        boneLengthR = getBoneLengths(rightLegChain);
 
-        
+        // full lengths
+        maxDistanceL = addLengths(boneLengthL);
+        maxDistanceR = addLengths(boneLengthR);
     }
 
-    private void solveIK(GameObject[] chain, GameObject goal, float chainLength)
+    public float[] getBoneLengths(GameObject[] chain)
+    {
+        List<float> boneLength = new List<float>();
+
+        for (int i = 0; i < chain.Length - 1; i++)
+        {
+            var tempLength = Vector3.Distance(chain[i].transform.position, chain[i + 1].transform.position);
+            boneLength.Add(tempLength);
+        }
+        return boneLength.ToArray();
+    }
+
+    public float addLengths(float[] boneLength)
+    {
+        float length = 0;
+        for (int i = 0; i < boneLength.Length; i++)
+        {
+            length += boneLength[i];
+        }
+        return length;
+    }
+
+    private void SolveIK(GameObject[] chain, GameObject goal, float chainLength)
     {
         var distance = (chain[0].transform.position - goal.transform.position).magnitude;  
 
         if (distance > chainLength)
         {
-
+            StretchKinematics(leftLegChain, lTarget);      
         }
         else
         {
-            backwardKineMatic(leftLegChain, lTarget);
-            forwardKineMatic(leftLegChain, lTarget);
+            BackwardKineMatic(leftLegChain, lTarget, lHint);
+            ForwardKineMatic(leftLegChain, lTarget, lHint);
         }
     }
 
-    private void backwardKineMatic(GameObject[] chain, GameObject goal)
+    // stretch 
+    void StretchKinematics(GameObject[] chain, GameObject target)
+    {
+
+    }
+
+    private void BackwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint)
     {
         var root = chain[0];
         chain[0].transform.position = goal.transform.position;
@@ -82,17 +108,19 @@ public class InverseLegKinematic : MonoBehaviour
         chain[0] = root;
     }
 
-    private void forwardKineMatic(GameObject[] chain, GameObject goal)
+    private void ForwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint)
     {
+        var root = chain[0];
         for (int i = 0; i < chain.Length - 1; i++)
         {
-            if (i < 3)
+            if (i < 3 && chain[i] != chain[1])
             {
                 var velocity = (chain[i + 1].transform.position - chain[i].transform.position).normalized;
                 var speed = Vector3.Distance(chain[i + 1].transform.position, chain[i].transform.position);
                 chain[i].transform.position = velocity * speed;
             }
         }
+        chain[0] = root;
     }
 
     // Update is called once per frame
@@ -103,7 +131,7 @@ public class InverseLegKinematic : MonoBehaviour
 
     private void FixedUpdate()
     {
-        solveIK(leftLegChain, lTarget, distanceL);
+        SolveIK(leftLegChain, lTarget, maxDistanceL);
         if (isActive)
         {
             if (lLeg)
@@ -144,7 +172,7 @@ public class InverseLegKinematic : MonoBehaviour
     }
 
     // maybe simple to use for 2 bone ik
-    private GameObject[] twoBoneIKChainList(GameObject hip)
+    private GameObject[] TwoBoneIKChainList(GameObject hip)
     {
         // temp list
         var legChain = new List<GameObject>();
@@ -160,7 +188,19 @@ public class InverseLegKinematic : MonoBehaviour
         var foot = knee.transform.GetChild(0).gameObject;
         legChain.Add(foot);
 
+        // to array
         return legChain.ToArray();
+    }
+
+    private void OnDrawGizmos()
+    {
+        // positions for the ik to go
+        Gizmos.DrawSphere(lTarget.transform.position, 0.1f);
+        Gizmos.DrawSphere(rTarget.transform.position, 0.1f);
+
+        // hints for the bends
+        Gizmos.DrawSphere(lHint.transform.position, 0.1f);
+        Gizmos.DrawSphere(rHint.transform.position, 0.1f);
     }
 }
 
