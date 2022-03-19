@@ -72,28 +72,58 @@ public class InverseLegKinematic : MonoBehaviour
         return length;
     }
 
-    private void SolveIK(GameObject[] chain, GameObject goal, float chainLength)
+    private void SolveIK(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength, float chainMaxSize)
     {
-        var distance = (chain[0].transform.position - goal.transform.position).magnitude;  
+        var distance = (chain[0].transform.position - goal.transform.position).magnitude;
 
-        if (distance > chainLength)
+        if (distance > chainMaxSize)
         {
-            StretchKinematics(leftLegChain, lTarget);      
+            StretchKinematics(chain, goal, chainLength, chainMaxSize);
         }
         else
         {
-            BackwardKineMatic(leftLegChain, lTarget, lHint);
-            ForwardKineMatic(leftLegChain, lTarget, lHint);
+            BackwardKineMatic(chain, goal, hint, chainLength, chainMaxSize);
+            //ForwardKineMatic(chain, goal, hint);
         }
     }
 
     // stretch 
-    void StretchKinematics(GameObject[] chain, GameObject target)
+    void StretchKinematics(GameObject[] chain, GameObject target, float[] boneLength, float maxLength)
     {
+        // get the direction
+        var direction = (target.transform.position - chain[0].transform.position).normalized;
+        // save original root position
+        var rootPos = chain[0];
+        
+        // stretch every bone to the max bonelength towards the target 
+        for (int i=0; i < chain.Length; i++) {
+            if(i!=0) {
+                chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
+            }
+        }
 
+        // add rotation offset to match
+        if (Vector3.Dot(direction, transform.forward) > 0) {
+            // rotate hip towards target
+            Quaternion newRotation = Quaternion.AngleAxis(maxLength, Vector3.forward) * Quaternion.LookRotation(direction);
+            // apply rotation with offset
+            chain[0].transform.rotation = new Quaternion(newRotation.x, newRotation.y, newRotation.z, newRotation.w);
+            chain[0].transform.Rotate(-90, 0, 0);
+        }
+        else {
+            // rotate hip towards target
+            Quaternion newRotation = Quaternion.AngleAxis(maxLength, Vector3.forward) * Quaternion.LookRotation(-direction);
+            // apply rotation with offset
+            chain[0].transform.rotation = new Quaternion(newRotation.x, newRotation.y, newRotation.z, newRotation.w);
+            chain[0].transform.Rotate(90, 0, 0);
+        }
+        //chain[0].transform.rotation = Quaternion.Inverse(chain[0].transform.rotation);
+
+        // put hip in the original position
+        chain[0] = rootPos;
     }
 
-    private void BackwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint)
+    private void BackwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength, float chainMaxSize)
     {
         var root = chain[0];
         chain[0].transform.position = goal.transform.position;
@@ -108,7 +138,7 @@ public class InverseLegKinematic : MonoBehaviour
         chain[0] = root;
     }
 
-    private void ForwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint)
+    private void ForwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength, float chainMaxSize)
     {
         var root = chain[0];
         for (int i = 0; i < chain.Length - 1; i++)
@@ -131,7 +161,7 @@ public class InverseLegKinematic : MonoBehaviour
 
     private void FixedUpdate()
     {
-        SolveIK(leftLegChain, lTarget, maxDistanceL);
+        
         if (isActive)
         {
             if (lLeg)
@@ -144,6 +174,11 @@ public class InverseLegKinematic : MonoBehaviour
             }
         }
 
+    }
+
+    private void LateUpdate()
+    {
+        SolveIK(leftLegChain, lTarget, lHint, boneLengthL, maxDistanceL);
     }
 
     // create chains to make it easy to swap models in the future
