@@ -38,6 +38,8 @@ public class InverseLegKinematic : MonoBehaviour
     // delta correction distance kinematics, and iteration precision
     public float delta = 0.001f;
     public int maxIterations = 5;
+    public float attractionStrength = 5f;
+    public float floorOffset = 0.125f;
 
     private void Awake()
     {
@@ -80,13 +82,13 @@ public class InverseLegKinematic : MonoBehaviour
     {
         var distance = (chain[0].transform.position - goal.transform.position).magnitude;
 
-        if (distance > chainMaxSize)
+        if (distance > chainMaxSize + floorOffset)
         {
             StretchKinematics(chain, goal, chainLength, chainMaxSize);
         }
         else
         {
-            for(int iterations = 0; iterations < maxIterations; iterations++)
+            for (int iterations = 0; iterations < maxIterations; iterations++)
             {
                 BackwardKineMatic(chain, goal, hint, chainLength);
                 ForwardKineMatic(chain, goal, hint, chainLength);
@@ -127,6 +129,8 @@ public class InverseLegKinematic : MonoBehaviour
         for (int i=0; i < chain.Length; i++) {
             if(i!=0) {
                 chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
+                chain[i].transform.rotation = Quaternion.LookRotation(direction, Vector3.forward);
+                chain[i].transform.Rotate(-90, 0, 0);
             }
         }
 
@@ -161,26 +165,28 @@ public class InverseLegKinematic : MonoBehaviour
             }
             else
             {
-                chain[i].transform.position = chain[i + 1].transform.position + (chain[i].transform.position - chain[i + 1].transform.position).normalized * chainLength[i];
+                // add a little bit of hint attraction to choose which way to bend
+                var newdirection = (hint.transform.position - chain[i].transform.position).normalized;
+                chain[i].transform.position = chain[i].transform.position + newdirection * attractionStrength;
+
+                var direction = (chain[i].transform.position - chain[i + 1].transform.position).normalized;
+                chain[i].transform.position = chain[i + 1].transform.position + direction * chainLength[i];
+              
+                //chain[i].transform.position = Vector3.MoveTowards(chain[i].transform.position, hint.transform.position, chainLength[i]);
             }
         }
     }
 
     private void ForwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength)
     {
-        //var root = chain[0];
         for (int i = 0; i < chain.Length - 1; i++)
         {
-            if (i == 0)
+            if (i != 0)
             {
-
-            }
-            else
-            {
+                // algorithm
                 chain[i].transform.position = chain[i - 1].transform.position + (chain[i].transform.position - chain[i - 1].transform.position).normalized * chainLength[i - 1];
             }
         }
-        //chain[0] = root;
     }
 
     private void LateUpdate()
