@@ -35,6 +35,10 @@ public class InverseLegKinematic : MonoBehaviour
     public float maxDistanceL;
     public float maxDistanceR;
 
+    // delta correction distance kinematics, and iteration precision
+    public float delta = 0.001f;
+    public int maxIterations = 5;
+
     private void Awake()
     {
         // create all leg chains
@@ -82,8 +86,32 @@ public class InverseLegKinematic : MonoBehaviour
         }
         else
         {
-            BackwardKineMatic(chain, goal, hint, chainLength, chainMaxSize);
-            //ForwardKineMatic(chain, goal, hint);
+            for(int iterations = 0; iterations < maxIterations; iterations++)
+            {
+                BackwardKineMatic(chain, goal, hint, chainLength);
+                ForwardKineMatic(chain, goal, hint, chainLength);
+
+                if ((chain[chain.Length - 1].transform.position - goal.transform.position).sqrMagnitude < delta * delta);
+                    break;
+            }
+            RotateAllJoints(chain);
+        }
+    }
+
+    private void RotateAllJoints(GameObject[] chain)
+    {
+        for (int i = 0; i < chain.Length; i++)
+        {
+            if (chain.Length - 1 == i)
+                break;
+
+            var direction = (chain[i+1].transform.position - chain[i].transform.position).normalized;
+
+            Quaternion newRotation = Quaternion.LookRotation(direction, Vector3.forward);
+
+            // apply rotation with offset
+            chain[i].transform.rotation = newRotation;
+            chain[i].transform.Rotate(-90, 0, 0);
         }
     }
 
@@ -102,83 +130,63 @@ public class InverseLegKinematic : MonoBehaviour
             }
         }
 
-        // add rotation offset to match
-        if (Vector3.Dot(direction, transform.forward) > 0) {
-            // rotate hip towards target
-            Quaternion newRotation = Quaternion.AngleAxis(maxLength, Vector3.forward) * Quaternion.LookRotation(direction);
+        if (Vector3.Dot(direction, -transform.up) > 0)
+        {
+            // rotate hip towards target // and offset quaternion to make it viable for walking took me a while
+            Quaternion newRotation = Quaternion.LookRotation(direction, Vector3.forward);
+
             // apply rotation with offset
-            chain[0].transform.rotation = new Quaternion(newRotation.x, newRotation.y, newRotation.z, newRotation.w);
+            chain[0].transform.rotation = newRotation;
             chain[0].transform.Rotate(-90, 0, 0);
         }
-        else {
+        else
+        {
             // rotate hip towards target
-            Quaternion newRotation = Quaternion.AngleAxis(maxLength, Vector3.forward) * Quaternion.LookRotation(-direction);
+            Quaternion newRotation = Quaternion.LookRotation(-direction, Vector3.forward);
             // apply rotation with offset
-            chain[0].transform.rotation = new Quaternion(newRotation.x, newRotation.y, newRotation.z, newRotation.w);
+            chain[0].transform.rotation = newRotation;
             chain[0].transform.Rotate(90, 0, 0);
         }
-        //chain[0].transform.rotation = Quaternion.Inverse(chain[0].transform.rotation);
 
         // put hip in the original position
         chain[0] = rootPos;
     }
 
-    private void BackwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength, float chainMaxSize)
+    private void BackwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength)
     {
-        var root = chain[0];
-        chain[0].transform.position = goal.transform.position;
-        for (int i = chain.Length - 1; i >= 0; i--)
+        for (int i = chain.Length - 1; i > 0; i--)
         {
-            if (i < 0) { 
-            var velocity = (chain[i - 1].transform.position - chain[i].transform.position).normalized;
-            var speed = Vector3.Distance(chain[i - 1].transform.position, chain[i].transform.position);
-            chain[i].transform.position = velocity * speed;
+            if (i == chain.Length - 1) {
+                chain[i].transform.position = goal.transform.position;
+            }
+            else
+            {
+                chain[i].transform.position = chain[i + 1].transform.position + (chain[i].transform.position - chain[i + 1].transform.position).normalized * chainLength[i];
             }
         }
-        chain[0] = root;
     }
 
-    private void ForwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength, float chainMaxSize)
+    private void ForwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength)
     {
-        var root = chain[0];
+        //var root = chain[0];
         for (int i = 0; i < chain.Length - 1; i++)
         {
-            if (i < 3 && chain[i] != chain[1])
+            if (i == 0)
             {
-                var velocity = (chain[i + 1].transform.position - chain[i].transform.position).normalized;
-                var speed = Vector3.Distance(chain[i + 1].transform.position, chain[i].transform.position);
-                chain[i].transform.position = velocity * speed;
+
+            }
+            else
+            {
+                chain[i].transform.position = chain[i - 1].transform.position + (chain[i].transform.position - chain[i - 1].transform.position).normalized * chainLength[i - 1];
             }
         }
-        chain[0] = root;
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-
-    }
-
-    private void FixedUpdate()
-    {
-        
-        if (isActive)
-        {
-            if (lLeg)
-            {
-
-            }
-            if (rLeg)
-            {
-
-            }
-        }
-
+        //chain[0] = root;
     }
 
     private void LateUpdate()
     {
         SolveIK(leftLegChain, lTarget, lHint, boneLengthL, maxDistanceL);
+        SolveIK(rightLegChain, rTarget, rHint, boneLengthR, maxDistanceR);
     }
 
     // create chains to make it easy to swap models in the future
