@@ -4,13 +4,6 @@ using UnityEngine;
 
 public class InverseLegKinematic : MonoBehaviour
 {
-    // if ik active
-    public bool isActive = false;
-
-    // check which leg need to do what to alternate
-    public bool lLeg = false;
-    public bool rLeg = false;
-
     // positions for the ik to go
     public GameObject lTarget;
     public GameObject rTarget;
@@ -169,7 +162,7 @@ public class InverseLegKinematic : MonoBehaviour
             {
                 // add a little bit of hint attraction to choose which way to bend
                 var newdirection = (hint.transform.position - chain[i].transform.position).normalized;
-                chain[i].transform.position = chain[i].transform.position + newdirection * attractionStrength;
+                chain[i].transform.position = chain[i].transform.position + (newdirection * attractionStrength) * chainLength[i];
 
                 var direction = (chain[i].transform.position - chain[i + 1].transform.position).normalized;
                 chain[i].transform.position = chain[i + 1].transform.position + direction * chainLength[i];
@@ -191,7 +184,7 @@ public class InverseLegKinematic : MonoBehaviour
         }
     }
 
-    private void LateUpdate()
+    private void FixedUpdate()
     {
         SolveIK(leftLegChain, lTarget, lHint, boneLengthL, maxDistanceL);
         SolveIK(rightLegChain, rTarget, rHint, boneLengthR, maxDistanceR);

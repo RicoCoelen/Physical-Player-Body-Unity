@@ -16,6 +16,8 @@ public class LocoMotionMovement : MonoBehaviour
     public float omegaX = 1.0f;
     public float omegaY = 5.0f;
     public float index;
+    public float offSet = 1f;
+    public float stepOffset = 1f;
 
     private void FixedUpdate()
     {
@@ -27,7 +29,8 @@ public class LocoMotionMovement : MonoBehaviour
         index += Time.deltaTime;
         float x = amplitudeX * Mathf.Cos(omegaX * index);
         float y = Mathf.Abs(amplitudeY * Mathf.Sin(omegaY * index));
-        lFoot.transform.localPosition = new Vector3(0, -y, -x);
-        rFoot.transform.localPosition = new Vector3(0, y, x);
+
+        lFoot.transform.localPosition = new Vector3(0 + offSet, y, x);
+        rFoot.transform.localPosition = new Vector3(0 - offSet, y, -x);
     }
 }
