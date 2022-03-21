@@ -1971,7 +1971,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2076467633}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c9eaa2586bad118418ef12eee8e717d2, type: 3}
   m_Name: 
@@ -1980,10 +1980,10 @@ MonoBehaviour:
   rFoot: {fileID: 1466592395}
   lFootHint: {fileID: 1313371377}
   rFootHint: {fileID: 1701983354}
-  amplitudeX: 1
-  amplitudeY: 1
+  amplitudeX: -0.3
+  amplitudeY: -0.5
   omegaX: 1
-  omegaY: 0
+  omegaY: 1
   index: 0
 --- !u!4 &2076614191 stripped
 Transform:
