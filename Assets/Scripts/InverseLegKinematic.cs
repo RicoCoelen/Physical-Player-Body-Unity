@@ -91,10 +91,12 @@ public class InverseLegKinematic : MonoBehaviour
             for (int iterations = 0; iterations < maxIterations; iterations++)
             {
                 BackwardKineMatic(chain, goal, hint, chainLength);
-                ForwardKineMatic(chain, goal, hint, chainLength);
+                ForwardKineMatic(chain, chainLength);
 
-                if ((chain[chain.Length - 1].transform.position - goal.transform.position).sqrMagnitude < delta * delta);
+                if ((chain[chain.Length - 1].transform.position - goal.transform.position).sqrMagnitude < delta * delta)
+                {
                     break;
+                }
             }
             RotateAllJoints(chain);
         }
@@ -109,7 +111,7 @@ public class InverseLegKinematic : MonoBehaviour
 
             var direction = (chain[i+1].transform.position - chain[i].transform.position).normalized;
 
-            Quaternion newRotation = Quaternion.LookRotation(direction, Vector3.forward);
+            Quaternion newRotation = Quaternion.LookRotation(direction, transform.forward);
 
             // apply rotation with offset
             chain[i].transform.rotation = newRotation;
@@ -129,7 +131,7 @@ public class InverseLegKinematic : MonoBehaviour
         for (int i=0; i < chain.Length; i++) {
             if(i!=0) {
                 chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
-                chain[i].transform.rotation = Quaternion.LookRotation(direction, Vector3.forward);
+                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.forward);
                 chain[i].transform.Rotate(-90, 0, 0);
             }
         }
@@ -137,7 +139,7 @@ public class InverseLegKinematic : MonoBehaviour
         if (Vector3.Dot(direction, -transform.up) > 0)
         {
             // rotate hip towards target // and offset quaternion to make it viable for walking took me a while
-            Quaternion newRotation = Quaternion.LookRotation(direction, Vector3.forward);
+            Quaternion newRotation = Quaternion.LookRotation(direction, transform.forward);
 
             // apply rotation with offset
             chain[0].transform.rotation = newRotation;
@@ -146,7 +148,7 @@ public class InverseLegKinematic : MonoBehaviour
         else
         {
             // rotate hip towards target
-            Quaternion newRotation = Quaternion.LookRotation(-direction, Vector3.forward);
+            Quaternion newRotation = Quaternion.LookRotation(-direction, transform.forward);
             // apply rotation with offset
             chain[0].transform.rotation = newRotation;
             chain[0].transform.Rotate(90, 0, 0);
@@ -177,7 +179,7 @@ public class InverseLegKinematic : MonoBehaviour
         }
     }
 
-    private void ForwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength)
+    private void ForwardKineMatic(GameObject[] chain, float[] chainLength)
     {
         for (int i = 0; i < chain.Length - 1; i++)
         {
@@ -200,11 +202,10 @@ public class InverseLegKinematic : MonoBehaviour
     {
         // some temporary variables
         var boneChain = new List<GameObject>();
-        var loop = true;
         var temp = hip;
 
         // loop trough the bones 
-        while (loop == true)
+        while (true)
         {
             boneChain.Add(temp);
             if(temp.transform.childCount != 0)
@@ -213,9 +214,10 @@ public class InverseLegKinematic : MonoBehaviour
             }
             else
             {
-                loop = false;
+                break;
             }
         }
+
         // return to array
         return boneChain.ToArray();
     }
