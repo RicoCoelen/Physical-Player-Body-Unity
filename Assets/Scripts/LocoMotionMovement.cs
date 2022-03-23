@@ -10,6 +10,8 @@ public class LocoMotionMovement : MonoBehaviour
     [SerializeField] private GameObject lFootHint;
     [SerializeField] private GameObject rFootHint;
 
+    public Rigidbody rb;
+
     // sine wave test
     public float amplitudeX = 10.0f;
     public float amplitudeY = 5.0f;
@@ -19,8 +21,16 @@ public class LocoMotionMovement : MonoBehaviour
     public float offSet = 1f;
     public float stepOffset = 1f;
 
+    public Vector3 velocity;
+
+    private void Awake()
+    {
+        rb = transform.GetComponent<Rigidbody>();
+    }
+
     private void FixedUpdate()
     {
+        this.velocity = rb.velocity;
         SineWave();
     }
 
@@ -32,5 +42,10 @@ public class LocoMotionMovement : MonoBehaviour
 
         lFoot.transform.localPosition = new Vector3(0 + offSet, y, x);
         rFoot.transform.localPosition = new Vector3(0 - offSet, y, -x);
+    }
+
+    public void LocoMotion()
+    {
+
     }
 }

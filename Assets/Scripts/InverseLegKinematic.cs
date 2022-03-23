@@ -56,6 +56,8 @@ public class InverseLegKinematic : MonoBehaviour
         for (int i = 0; i < chain.Length - 1; i++)
         {
             var tempLength = Vector3.Distance(chain[i].transform.position, chain[i + 1].transform.position);
+            if (i == chain.Length - 1)
+                tempLength += floorOffset;
             boneLength.Add(tempLength);
         }
         return boneLength.ToArray();
@@ -68,6 +70,7 @@ public class InverseLegKinematic : MonoBehaviour
         {
             length += boneLength[i];
         }
+        length += floorOffset;
         return length;
     }
 
@@ -77,7 +80,7 @@ public class InverseLegKinematic : MonoBehaviour
 
         if (distance > chainMaxSize + floorOffset)
         {
-            StretchKinematics(chain, goal, chainLength, chainMaxSize);
+            StretchKinematics(chain, goal, chainLength);
         }
         else
         {
@@ -103,7 +106,6 @@ public class InverseLegKinematic : MonoBehaviour
                 break;
 
             var direction = (chain[i+1].transform.position - chain[i].transform.position).normalized;
-
             Quaternion newRotation = Quaternion.LookRotation(direction, transform.forward);
 
             // apply rotation with offset
@@ -113,7 +115,7 @@ public class InverseLegKinematic : MonoBehaviour
     }
 
     // stretch 
-    void StretchKinematics(GameObject[] chain, GameObject target, float[] boneLength, float maxLength)
+    void StretchKinematics(GameObject[] chain, GameObject target, float[] boneLength)
     {
         // get the direction
         var direction = (target.transform.position - chain[0].transform.position).normalized;
@@ -156,7 +158,8 @@ public class InverseLegKinematic : MonoBehaviour
         for (int i = chain.Length - 1; i > 0; i--)
         {
             if (i == chain.Length - 1) {
-                chain[i].transform.position = goal.transform.position;
+                //chain[i].transform.position = goal.transform.position;
+                chain[i].transform.position = Vector3.MoveTowards(chain[i].transform.position, goal.transform.position, chainLength[i - 1]);
             }
             else
             {
@@ -166,8 +169,6 @@ public class InverseLegKinematic : MonoBehaviour
 
                 var direction = (chain[i].transform.position - chain[i + 1].transform.position).normalized;
                 chain[i].transform.position = chain[i + 1].transform.position + direction * chainLength[i];
-              
-                //chain[i].transform.position = Vector3.MoveTowards(chain[i].transform.position, hint.transform.position, chainLength[i]);
             }
         }
     }
