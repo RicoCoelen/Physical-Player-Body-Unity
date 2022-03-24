@@ -4,13 +4,24 @@ using UnityEngine;
 
 public class IkChain : MonoBehaviour
 {
-    public IKJoint[] rootChain;
+    // positions for the ik to go
+    [SerializeField] private GameObject Target;
 
-    public GameObject target;
-    public GameObject hint;
+    // hints for the bends
+    [SerializeField] private GameObject Hint;
 
-    public GameObject rootIKJoint;
-    public int maxJoints = 3;
+    // root bones
+    [SerializeField] private GameObject root;
+
+    // bone chainess
+    [SerializeField]  private GameObject[] chain;
+
+    // every bone length
+    [SerializeField] private float[] boneLength;
+
+    // total bone length
+    [SerializeField]  private float maxDistance;
+
 
     // delta correction distance kinematics, and iteration precision
     public float delta = 0.001f;
@@ -18,36 +29,33 @@ public class IkChain : MonoBehaviour
     public float attractionStrength = 5f;
     public float floorOffset = 0.125f;
 
-    public float maxChainLength;
-
     private void Awake()
     {
         // create all leg chains
-       rootChain = MakeIKChainList(rootIKJoint, maxJoints);
+        chain = TwoBoneIKChainList(root);
+
+        // get their default length to maybe save processing power in the future
+        boneLength = getBoneLengths(chain);
+
+        // full lengths
+        maxDistance = AddLengths(boneLength);
     }
 
-    // create chains to make it easy to swap models in the future
-    private IKJoint[] MakeIKChainList(GameObject root, int joints)
+    private float[] getBoneLengths(GameObject[] chain)
     {
-        // some temporary variables
-        var chain = new IKJoint[joints];
-        var temp = root;
+        List<float> boneLength = new List<float>();
 
-        // loop trough the bones 
-        for(int i = 0; i < joints; i++)
+        for (int i = 0; i < chain.Length - 1; i++)
         {
-            if (temp.transform.childCount != 0)
-            {
-                temp = temp.transform.GetChild(0).gameObject;
-                chain[i] = new IKJoint(temp, temp.transform.rotation);
-            }
+            var tempLength = Vector3.Distance(chain[i].transform.position, chain[i + 1].transform.position);
+            if (i == chain.Length - 1)
+                tempLength += floorOffset;
+            boneLength.Add(tempLength);
         }
-     
-        // return to array
-        return chain;
+        return boneLength.ToArray();
     }
 
-    public float addLengths(float[] boneLength)
+    private float AddLengths(float[] boneLength)
     {
         float length = 0;
         for (int i = 0; i < boneLength.Length; i++)
@@ -58,44 +66,22 @@ public class IkChain : MonoBehaviour
         return length;
     }
 
-    private void FixedUpdate()
+    private void SolveIK(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength, float chainMaxSize)
     {
-        SolveIK(rootChain, target, hint, maxChainLength);
-    }
-
-
-    private void RotateAllJoints(IKJoint[] chain)
-    {
-        for (int i = 0; i < chain.Length; i++)
-        {
-            if (chain.Length - 1 == i)
-                break;
-
-            var direction = (chain[i + 1].joint.transform.position - chain[i].joint.transform.position).normalized;
-            Quaternion newRotation = Quaternion.LookRotation(direction, transform.forward);
-
-            // apply rotation with offset
-            chain[i].joint.transform.rotation = newRotation;
-            chain[i].joint.transform.Rotate(-90, 0, 0);
-        }
-    }
-
-    public void SolveIK(IKJoint[] chain, GameObject goal, GameObject hint, float chainMaxSize)
-    {
-        var distance = (chain[0].joint.transform.position - goal.transform.position).magnitude;
+        var distance = (chain[0].transform.position - goal.transform.position).magnitude;
 
         if (distance > chainMaxSize + floorOffset)
         {
-            StretchKinematics(chain, goal);
+            StretchKinematics(chain, goal, chainLength);
         }
         else
         {
             for (int iterations = 0; iterations < maxIterations; iterations++)
             {
-                BackwardKineMatic(chain, goal, hint);
-                ForwardKineMatic(chain);
+                BackwardKineMatic(chain, goal, hint, chainLength);
+                ForwardKineMatic(chain, chainLength);
 
-                if ((chain[chain.Length - 1].joint.transform.position - goal.transform.position).sqrMagnitude < delta * delta)
+                if ((chain[chain.Length - 1].transform.position - goal.transform.position).sqrMagnitude < delta * delta)
                 {
                     break;
                 }
@@ -104,10 +90,27 @@ public class IkChain : MonoBehaviour
         }
     }
 
-    void StretchKinematics(IKJoint[] chain, GameObject target)
+    private void RotateAllJoints(GameObject[] chain)
+    {
+        for (int i = 0; i < chain.Length; i++)
+        {
+            if (chain.Length - 1 == i)
+                break;
+
+            var direction = (chain[i + 1].transform.position - chain[i].transform.position).normalized;
+            Quaternion newRotation = Quaternion.LookRotation(direction, transform.root.forward);
+
+            // apply rotation with offset
+            chain[i].transform.rotation = newRotation;
+            chain[i].transform.Rotate(-90, 0, 0);
+        }
+    }
+
+    // stretch 
+    private void StretchKinematics(GameObject[] chain, GameObject target, float[] boneLength)
     {
         // get the direction
-        var direction = (target.transform.position - chain[0].joint.transform.position).normalized;
+        var direction = (target.transform.position - chain[0].transform.position).normalized;
         // save original root position
         var rootPos = chain[0];
 
@@ -116,9 +119,9 @@ public class IkChain : MonoBehaviour
         {
             if (i != 0)
             {
-                chain[i].joint.transform.position = chain[i - 1].joint.transform.position + direction * chain[i - 1].boneLength;
-                chain[i].joint.transform.rotation = Quaternion.LookRotation(direction, transform.forward);
-                chain[i].joint.transform.Rotate(-90, 0, 0);
+                chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
+                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.forward);
+                chain[i].transform.Rotate(-90, 0, 0);
             }
         }
 
@@ -128,53 +131,114 @@ public class IkChain : MonoBehaviour
             Quaternion newRotation = Quaternion.LookRotation(direction, transform.forward);
 
             // apply rotation with offset
-            chain[0].joint.transform.rotation = newRotation;
-            chain[0].joint.transform.Rotate(-90, 0, 0);
+            chain[0].transform.rotation = newRotation;
+            chain[0].transform.Rotate(-90, 0, 0);
         }
         else
         {
             // rotate hip towards target
             Quaternion newRotation = Quaternion.LookRotation(-direction, transform.forward);
             // apply rotation with offset
-            chain[0].joint.transform.rotation = newRotation;
-            chain[0].joint.transform.Rotate(90, 0, 0);
+            chain[0].transform.rotation = newRotation;
+            chain[0].transform.Rotate(90, 0, 0);
         }
 
         // put hip in the original position
         chain[0] = rootPos;
     }
 
-    public void BackwardKineMatic(IKJoint[] chain, GameObject goal, GameObject hint)
+    private void BackwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength)
     {
         for (int i = chain.Length - 1; i > 0; i--)
         {
             if (i == chain.Length - 1)
             {
-                //chain[i].joint.transform.position = goal.transform.position;
-                chain[i].joint.transform.position = Vector3.MoveTowards(chain[i].joint.transform.position, goal.transform.position, chain[i - 1].boneLength);
+                //chain[i].transform.position = goal.transform.position;
+                chain[i].transform.position = Vector3.MoveTowards(chain[i].transform.position, goal.transform.position, chainLength[i - 1]);
             }
             else
             {
                 // add a little bit of hint attraction to choose which way to bend
-                var newdirection = (hint.transform.position - chain[i].joint.transform.position).normalized;
-                chain[i].joint.transform.position = chain[i].joint.transform.position + (newdirection * attractionStrength) * chain[i].boneLength;
+                var newdirection = (hint.transform.position - chain[i].transform.position).normalized;
+                chain[i].transform.position = chain[i].transform.position + (newdirection * attractionStrength) * chainLength[i];
 
-                var direction = (chain[i].joint.transform.position - chain[i + 1].joint.transform.position).normalized;
-                chain[i].joint.transform.position = chain[i + 1].joint.transform.position + direction * chain[i].boneLength;
+                var direction = (chain[i].transform.position - chain[i + 1].transform.position).normalized;
+                chain[i].transform.position = chain[i + 1].transform.position + direction * chainLength[i];
             }
         }
     }
 
-    public void ForwardKineMatic(IKJoint[] chain)
+    private void ForwardKineMatic(GameObject[] chain, float[] chainLength)
     {
         for (int i = 0; i < chain.Length - 1; i++)
         {
             if (i != 0)
             {
                 // algorithm
-                chain[i].joint.transform.position = chain[i - 1].joint.transform.position + (chain[i].joint.transform.position - chain[i - 1].joint.transform.position).normalized * chain[i - 1].boneLength;
+                chain[i].transform.position = chain[i - 1].transform.position + (chain[i].transform.position - chain[i - 1].transform.position).normalized * chainLength[i - 1];
             }
         }
+    }
+
+    private void FixedUpdate()
+    {
+        SolveIK(chain, Target, Hint, boneLength, maxDistance);
+    }
+
+    // create chains to make it easy to swap models in the future
+    private GameObject[] MakeIKChainList(GameObject hip)
+    {
+        // some temporary variables
+        var boneChain = new List<GameObject>();
+        var temp = hip;
+
+        // loop trough the bones 
+        while (true)
+        {
+            boneChain.Add(temp);
+            if (temp.transform.childCount != 0)
+            {
+                temp = temp.transform.GetChild(0).gameObject;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // return to array
+        return boneChain.ToArray();
+    }
+
+    // maybe simple to use for 2 bone ik
+    private GameObject[] TwoBoneIKChainList(GameObject root)
+    {
+        // temp list
+        var legChain = new List<GameObject>();
+
+        // add upper hip
+        legChain.Add(root);
+        Debug.Log(root);
+
+        // get/add knee
+        var knee = root.transform.GetChild(0).gameObject;
+        legChain.Add(knee);
+
+        // get/add foot
+        var foot = knee.transform.GetChild(0).gameObject;
+        legChain.Add(foot);
+
+        // to array
+        return legChain.ToArray();
+    }
+
+    private void OnDrawGizmos()
+    {
+        // positions for the ik to go
+        Gizmos.DrawSphere(Target.transform.position, 0.1f);
+
+        // hints for the bends
+        Gizmos.DrawSphere(Hint.transform.position, 0.1f);
     }
 }
 
