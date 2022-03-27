@@ -5,13 +5,13 @@ using UnityEngine;
 public class IkChain : MonoBehaviour
 {
     // positions for the ik to go
-    [SerializeField] private GameObject Target;
+    [SerializeField] public GameObject Target;
 
     // hints for the bends
-    [SerializeField] private GameObject Hint;
+    [SerializeField] public GameObject Hint;
 
     // root bones
-    [SerializeField] private GameObject root;
+    [SerializeField] public GameObject root;
 
     // bone chainess
     [SerializeField]  private GameObject[] chain;
@@ -22,6 +22,8 @@ public class IkChain : MonoBehaviour
     // total bone length
     [SerializeField]  private float maxDistance;
 
+
+    [SerializeField] private Vector3 offsetRotation;
 
     // delta correction distance kinematics, and iteration precision
     public float delta = 0.001f;
@@ -102,7 +104,7 @@ public class IkChain : MonoBehaviour
 
             // apply rotation with offset
             chain[i].transform.rotation = newRotation;
-            chain[i].transform.Rotate(-90, 0, 0);
+            chain[i].transform.Rotate(offsetRotation);
         }
     }
 
@@ -121,7 +123,7 @@ public class IkChain : MonoBehaviour
             {
                 chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
                 chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.forward);
-                chain[i].transform.Rotate(-90, 0, 0);
+                chain[i].transform.Rotate(offsetRotation);
             }
         }
 
@@ -132,7 +134,7 @@ public class IkChain : MonoBehaviour
 
             // apply rotation with offset
             chain[0].transform.rotation = newRotation;
-            chain[0].transform.Rotate(-90, 0, 0);
+            chain[0].transform.Rotate(offsetRotation);
         }
         else
         {
@@ -140,7 +142,7 @@ public class IkChain : MonoBehaviour
             Quaternion newRotation = Quaternion.LookRotation(-direction, transform.forward);
             // apply rotation with offset
             chain[0].transform.rotation = newRotation;
-            chain[0].transform.Rotate(90, 0, 0);
+            chain[0].transform.Rotate(offsetRotation);
         }
 
         // put hip in the original position
@@ -149,6 +151,8 @@ public class IkChain : MonoBehaviour
 
     private void BackwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength)
     {
+        var rootPos = chain[0];
+
         for (int i = chain.Length - 1; i > 0; i--)
         {
             if (i == chain.Length - 1)
@@ -166,10 +170,15 @@ public class IkChain : MonoBehaviour
                 chain[i].transform.position = chain[i + 1].transform.position + direction * chainLength[i];
             }
         }
+
+        // put hip in the original position
+        chain[0] = rootPos;
     }
 
     private void ForwardKineMatic(GameObject[] chain, float[] chainLength)
     {
+        var rootPos = chain[0];
+
         for (int i = 0; i < chain.Length - 1; i++)
         {
             if (i != 0)
@@ -178,6 +187,9 @@ public class IkChain : MonoBehaviour
                 chain[i].transform.position = chain[i - 1].transform.position + (chain[i].transform.position - chain[i - 1].transform.position).normalized * chainLength[i - 1];
             }
         }
+
+        // put hip in the original position
+        chain[0] = rootPos;
     }
 
     private void FixedUpdate()
@@ -235,10 +247,10 @@ public class IkChain : MonoBehaviour
     private void OnDrawGizmos()
     {
         // positions for the ik to go
-        Gizmos.DrawSphere(Target.transform.position, 0.1f);
+        Gizmos.DrawSphere(Target.transform.position, 0.01f);
 
         // hints for the bends
-        Gizmos.DrawSphere(Hint.transform.position, 0.1f);
+        Gizmos.DrawSphere(Hint.transform.position, 0.01f);
     }
 }
 

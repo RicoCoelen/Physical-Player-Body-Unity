@@ -155,6 +155,8 @@ public class InverseLegKinematic : MonoBehaviour
 
     private void BackwardKineMatic(GameObject[] chain, GameObject goal, GameObject hint, float[] chainLength)
     {
+        var rootPos = chain[0];
+
         for (int i = chain.Length - 1; i > 0; i--)
         {
             if (i == chain.Length - 1) {
@@ -171,10 +173,15 @@ public class InverseLegKinematic : MonoBehaviour
                 chain[i].transform.position = chain[i + 1].transform.position + direction * chainLength[i];
             }
         }
+
+        // put hip in the original position
+        chain[0] = rootPos;
     }
 
     private void ForwardKineMatic(GameObject[] chain, float[] chainLength)
     {
+        var rootPos = chain[0];
+
         for (int i = 0; i < chain.Length - 1; i++)
         {
             if (i != 0)
@@ -183,6 +190,9 @@ public class InverseLegKinematic : MonoBehaviour
                 chain[i].transform.position = chain[i - 1].transform.position + (chain[i].transform.position - chain[i - 1].transform.position).normalized * chainLength[i - 1];
             }
         }
+
+        // put hip in the original position
+        chain[0] = rootPos;
     }
 
     private void FixedUpdate()
