@@ -7,81 +7,128 @@ public class MovementController : MonoBehaviour
 {
     private Rigidbody rb;
 
-    [SerializeField] private float movementSpeed = 1;
-    [SerializeField] private float jumpHeight = 1;
-    [SerializeField] private float groundDistanceCheck = 0.1f;
+    private PlayerInputActions controls;
+
+    private Vector2 movementVector;
+    private bool isMoving = false;
+
+    private Vector2 lookVector;
+    private bool isLooking = false;
+
+    [Header("Movement variables")]
     [SerializeField] private float lerpSpeed = 0.1f;
     [SerializeField] private float stepLength = 1f;
+    [SerializeField] private float movementSpeed = 1;
+    [SerializeField] private float jumpHeight = 1;
+    [SerializeField] private float maxSpeed = 10f;
+
+    [Header("Ground variables")]
     [SerializeField] private bool isGrounded = true;
+    [SerializeField] private float groundDistanceCheck = 0.1f;
     [SerializeField] private Vector3 offset;
+    private int layerMask = 1 << 6;  // Bit shift the index of the layer (6) to get a bit mask
+    
+    [Header("Bones")]
+    [SerializeField] private GameObject upperSpine;
+    [SerializeField] private GameObject middleSpine;
+    [SerializeField] private GameObject lowerSpine;
+    [SerializeField] private GameObject hips;
 
-    public GameObject upperSpine;
-    public GameObject middleSpine;
-    public GameObject lowerSpine;
-
-    public IkChain leftLegTarget;
-    public IkChain rightLegTarget;
-
-    public InputAction fire;
-    [SerializeField] private InputActionAsset controls;
-    private InputActionMap _inputActionMap;
-
-    private PlayerInput m_playerInput;
-    private Vector2 m_lookAxis;
-    private Vector2 m_moveAxis;
+    [Header("Limbs")]
+    [SerializeField] private IkChain leftLeg;
+    [SerializeField] private IkChain rightLeg;
+    [SerializeField] private IkChain leftArm;
+    [SerializeField] private IkChain rightArm;
 
     private void Awake()
     {
-        m_playerInput = GetComponent<PlayerInput>();
         rb = GetComponent<Rigidbody>();
+
+        controls = new PlayerInputActions();
+
+        // AWDS - movement
+        controls.Player.Movement.started += HandleMovement;
+        controls.Player.Movement.performed += HandleMovement;
+        controls.Player.Movement.canceled += HandleMovement;
+
+        // look rotation
+        controls.Player.Look.started += HandleMouseMovement;
+        controls.Player.Look.performed += HandleMouseMovement;
+        controls.Player.Look.canceled += HandleMouseMovement;
+
+        // jump
+        controls.Player.Jump.started += Jump;
+        controls.Player.Jump.performed += Jump;
+        controls.Player.Jump.canceled += Jump;
+
+        // enable controls
+        controls.Enable();
     }
 
-    private void OnEnable()
+    private void OnDestroy()
     {
-        m_playerInput.actions["Movement"].performed += HandleMovement;
-        m_playerInput.actions["Movement"].started += HandleMovement;
-        m_playerInput.actions["Movement"].canceled += HandleMovement;
-
-    }
-
-    private void OnDisable()
-    {
-        m_playerInput.actions["Movement"].performed -= HandleMovement;
-        m_playerInput.actions["Movement"].started -= HandleMovement;
-        m_playerInput.actions["Movement"].canceled -= HandleMovement;
+        controls.Player.Movement.started -= HandleMovement;
+        controls.Player.Movement.performed -= HandleMovement;
+        controls.Player.Movement.canceled -= HandleMovement;
     }
 
     private void FixedUpdate()
     {
         isGrounded = Grounded();
-        Vector3 velocity = new Vector3(rb.velocity.x, 0, rb.velocity.y);
-        RotateTowardsVelocity(velocity);
-        //VelocityWalk(velocity);
 
-    }
-
-    public void VelocityWalk(Vector3 velocity, IkChain legChain)
-    {
-        RaycastHit hit;
-        if (Physics.Raycast(transform.localPosition, Vector3.down, out hit))
+        if (isMoving)
         {
-            float distance = rb.velocity.magnitude * stepLength;
-            Vector3 direction = rb.velocity.normalized;
+            rb.AddForce(new Vector3(movementVector.x, 0, movementVector.y) * movementSpeed, ForceMode.Force);
 
-            Gizmos.DrawSphere(hit.point, 0.1f);
-            Gizmos.DrawSphere(hit.point += direction * distance, 0.1f);
-            Gizmos.DrawSphere(hit.point -= direction * distance, 0.1f);
+            if (rb.velocity.magnitude > maxSpeed)
+            {
+                rb.velocity = rb.velocity.normalized * maxSpeed;
+            }
         }
 
+        if (isLooking)
+        {
+            // Debug.Log(lookVector); // TODO: fix looking around using delta
+        }
 
+        RotateTowardsVelocity();
+        VelocityWalk(leftLeg);
+        VelocityWalk(rightLeg);
     }
 
-    public void RotateTowardsVelocity(Vector3 velocity)
+    public void VelocityWalk(IkChain legChain)
     {
-        // transform.root.forward
-        Quaternion temp = Quaternion.LookRotation(new Vector3(velocity.x, 0, velocity.z), transform.root.forward);
+        // TODO:
+
         
-        middleSpine.transform.rotation = Quaternion.Lerp(middleSpine.transform.rotation, temp, Time.time * lerpSpeed);
+        RaycastHit hit;
+        if (Physics.Raycast(legChain.transform.position, Vector3.down, out hit, 100, layerMask))
+        {
+            //float distance = rb.velocity.magnitude * stepLength;
+            //Vector3 direction = rb.velocity.normalized;
+
+            legChain.Target.transform.position = hit.point;
+            //Gizmos.DrawSphere(hit.point += direction * distance, 0.1f);
+            //Gizmos.DrawSphere(hit.point -= direction * distance, 0.1f);
+        }
+        
+    }
+
+    public void RotateTowardsVelocity()
+    {
+        if (Vector3.Dot(rb.velocity, rb.transform.forward) > 0 && rb.velocity.magnitude > 0.1f)
+        {
+            hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, Quaternion.LookRotation(rb.velocity), lerpSpeed);
+        }
+        else
+        {
+            hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, Quaternion.LookRotation(-rb.velocity), lerpSpeed);
+        }
+
+        // deadzone fix for weird movements
+
+        // then rotate upper body towards front capsule
+        upperSpine.transform.rotation = transform.root.rotation;
     }
 
     public void Jump(InputAction.CallbackContext context)
@@ -92,25 +139,44 @@ public class MovementController : MonoBehaviour
 
     public void HandleMovement(InputAction.CallbackContext context)
     {
-        var movementVector = context.ReadValue<Vector2>();
+        if (!gameObject.activeSelf)
+            return;
 
-        // do controls here
-        //controls.Player.LMB.performed += _ => LMBisPressed = true;
-        //controls.Player.LMB.canceled += _ => LMBisPressed = false;
-        rb.AddForce(new Vector3(movementVector.x, 0, movementVector.y) * movementSpeed, ForceMode.Force);
+        if(context.canceled)
+        {
+            isMoving = false;
+            movementVector = Vector3.zero;
+        }
+        else
+        {
+            isMoving = true;
+            movementVector = context.ReadValue<Vector2>();
+        }
+
+    }
+
+    public void HandleMouseMovement(InputAction.CallbackContext context)
+    {
+        if (!gameObject.activeSelf)
+            return;
+
+        if (context.canceled)
+        {
+            isLooking = false;
+            lookVector = Vector2.zero;
+        }
+        else
+        {
+            isLooking = true;
+            lookVector = context.ReadValue<Vector2>();
+        }
+
     }
 
     public bool Grounded()
     {
-        // Bit shift the index of the layer (6) to get a bit mask
-        int layerMask = 1 << 6;
-
-        // This would cast rays only against colliders in layer 8.
-        // But instead we want to collide against everything except layer 8. The ~ operator does this, it inverts a bitmask.
-        //layerMask = ~layerMask;
-
         RaycastHit hit;
-        // Does the ray intersect any objects excluding the player layer
+
         if (Physics.Raycast(transform.position + offset, transform.TransformDirection(Vector3.down), out hit, groundDistanceCheck, layerMask))
         {
             return true;
@@ -118,10 +184,5 @@ public class MovementController : MonoBehaviour
         else { 
             return false;
         }
-    }
-
-    private void OnDrawGizmos()
-    {
-
     }
 } 

@@ -11,7 +11,7 @@ public class IkChain : MonoBehaviour
     [SerializeField] public GameObject Hint;
 
     // root bones
-    [SerializeField] public GameObject root;
+    [SerializeField] private GameObject root;
 
     // bone chainess
     [SerializeField]  private GameObject[] chain;
@@ -22,8 +22,11 @@ public class IkChain : MonoBehaviour
     // total bone length
     [SerializeField]  private float maxDistance;
 
-
+    // rotation for every ikchain
     [SerializeField] private Vector3 offsetRotation;
+
+    // generate random color
+    [SerializeField] private Color gizmoColor = new Color(Random.Range(0, 255), Random.Range(0, 255), Random.Range(0, 255));
 
     // delta correction distance kinematics, and iteration precision
     public float delta = 0.001f;
@@ -33,14 +36,15 @@ public class IkChain : MonoBehaviour
 
     private void Awake()
     {
-        // create all leg chains
         chain = TwoBoneIKChainList(root);
 
-        // get their default length to maybe save processing power in the future
         boneLength = getBoneLengths(chain);
 
-        // full lengths
         maxDistance = AddLengths(boneLength);
+
+        // temp for now
+        Hint = new GameObject();
+        Target = new GameObject();
     }
 
     private float[] getBoneLengths(GameObject[] chain)
@@ -108,7 +112,6 @@ public class IkChain : MonoBehaviour
         }
     }
 
-    // stretch 
     private void StretchKinematics(GameObject[] chain, GameObject target, float[] boneLength)
     {
         // get the direction
@@ -119,30 +122,18 @@ public class IkChain : MonoBehaviour
         // stretch every bone to the max bonelength towards the target 
         for (int i = 0; i < chain.Length; i++)
         {
-            if (i != 0)
+            if (i == 0)
             {
-                chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
-                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.forward);
+                chain[i].transform.position = rootPos.transform.position;
+                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.root.forward);
                 chain[i].transform.Rotate(offsetRotation);
             }
-        }
-
-        if (Vector3.Dot(direction, -transform.up) > 0)
-        {
-            // rotate hip towards target // and offset quaternion to make it viable for walking took me a while
-            Quaternion newRotation = Quaternion.LookRotation(direction, transform.forward);
-
-            // apply rotation with offset
-            chain[0].transform.rotation = newRotation;
-            chain[0].transform.Rotate(offsetRotation);
-        }
-        else
-        {
-            // rotate hip towards target
-            Quaternion newRotation = Quaternion.LookRotation(-direction, transform.forward);
-            // apply rotation with offset
-            chain[0].transform.rotation = newRotation;
-            chain[0].transform.Rotate(offsetRotation);
+            else
+            {
+                chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
+                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.root.forward);
+                chain[i].transform.Rotate(offsetRotation);
+            }
         }
 
         // put hip in the original position
@@ -246,9 +237,9 @@ public class IkChain : MonoBehaviour
 
     private void OnDrawGizmos()
     {
+        Gizmos.color = gizmoColor;
         // positions for the ik to go
         Gizmos.DrawSphere(Target.transform.position, 0.01f);
-
         // hints for the bends
         Gizmos.DrawSphere(Hint.transform.position, 0.01f);
     }
