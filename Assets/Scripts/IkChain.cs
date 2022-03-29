@@ -4,31 +4,24 @@ using UnityEngine;
 
 public class IkChain : MonoBehaviour
 {
-    // positions for the ik to go
+    [Header("Bones")]
+    [SerializeField] public GameObject root; // fill root bone
+    [SerializeField] public GameObject[] chain;
+    [SerializeField] private float[] boneLength;    
+    [SerializeField] private float maxDistance; // total bone length
+
+    [Header("Points")]
     [SerializeField] public GameObject Target;
-
-    // hints for the bends
     [SerializeField] public GameObject Hint;
+    // 2 points to interpolate
+    public GameObject maxFeetDistance;
+    public GameObject minFeetDistance;
 
-    // root bones
-    [SerializeField] private GameObject root;
-
-    // bone chainess
-    [SerializeField]  private GameObject[] chain;
-
-    // every bone length
-    [SerializeField] private float[] boneLength;
-
-    // total bone length
-    [SerializeField]  private float maxDistance;
-
-    // rotation for every ikchain
-    [SerializeField] private Vector3 offsetRotation;
-
-    // generate random color
-    [SerializeField] private Color gizmoColor = new Color(Random.Range(0, 255), Random.Range(0, 255), Random.Range(0, 255));
+    [Header("Rotation Offset")]
+    [SerializeField] private Vector3 offsetRotation; // offset if rotation weird
 
     // delta correction distance kinematics, and iteration precision
+
     public float delta = 0.001f;
     public int maxIterations = 5;
     public float attractionStrength = 5f;
@@ -43,8 +36,17 @@ public class IkChain : MonoBehaviour
         maxDistance = AddLengths(boneLength);
 
         // temp for now
-        Hint = new GameObject();
-        Target = new GameObject();
+        Hint = new GameObject($"{ transform.name }: Hint");
+        Hint.transform.parent = this.transform;
+        Hint.transform.position = Hint.transform.position + transform.forward * 5;
+
+        Target = new GameObject($"{ transform.name }: Target");
+
+        maxFeetDistance = new GameObject($"{transform.name}: maxDistancePoint");
+        maxFeetDistance.transform.parent = this.transform;
+        
+        minFeetDistance = new GameObject($"{ transform.name }: minDistancePoint");
+        minFeetDistance.transform.parent = this.transform;
     }
 
     private float[] getBoneLengths(GameObject[] chain)
@@ -92,7 +94,7 @@ public class IkChain : MonoBehaviour
                     break;
                 }
             }
-            RotateAllJoints(chain);
+           // RotateAllJoints(chain);
         }
     }
 
@@ -125,13 +127,13 @@ public class IkChain : MonoBehaviour
             if (i == 0)
             {
                 chain[i].transform.position = rootPos.transform.position;
-                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.root.forward);
+                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.forward);
                 chain[i].transform.Rotate(offsetRotation);
             }
             else
             {
                 chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
-                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.root.forward);
+                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.forward);
                 chain[i].transform.Rotate(offsetRotation);
             }
         }
@@ -237,11 +239,10 @@ public class IkChain : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        Gizmos.color = gizmoColor;
-        // positions for the ik to go
         Gizmos.DrawSphere(Target.transform.position, 0.01f);
-        // hints for the bends
         Gizmos.DrawSphere(Hint.transform.position, 0.01f);
+        Gizmos.DrawSphere(minFeetDistance.transform.position, 0.01f);
+        Gizmos.DrawSphere(maxFeetDistance.transform.position, 0.01f);
     }
 }
 

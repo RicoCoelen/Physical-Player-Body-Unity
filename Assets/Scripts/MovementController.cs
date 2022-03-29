@@ -21,6 +21,10 @@ public class MovementController : MonoBehaviour
     [SerializeField] private float movementSpeed = 1;
     [SerializeField] private float jumpHeight = 1;
     [SerializeField] private float maxSpeed = 10f;
+    private bool canWalk = true;
+    [SerializeField] private float delay = 0.5f;
+    private float timer;
+    [SerializeField]  private float delta;
 
     [Header("Ground variables")]
     [SerializeField] private bool isGrounded = true;
@@ -67,9 +71,20 @@ public class MovementController : MonoBehaviour
 
     private void OnDestroy()
     {
+        // AWDS - movement
         controls.Player.Movement.started -= HandleMovement;
         controls.Player.Movement.performed -= HandleMovement;
         controls.Player.Movement.canceled -= HandleMovement;
+
+        // look rotation
+        controls.Player.Look.started -= HandleMouseMovement;
+        controls.Player.Look.performed -= HandleMouseMovement;
+        controls.Player.Look.canceled -= HandleMouseMovement;
+
+        // jump
+        controls.Player.Jump.started -= Jump;
+        controls.Player.Jump.performed -= Jump;
+        controls.Player.Jump.canceled -= Jump;
     }
 
     private void FixedUpdate()
@@ -91,7 +106,7 @@ public class MovementController : MonoBehaviour
             // Debug.Log(lookVector); // TODO: fix looking around using delta
         }
 
-        RotateTowardsVelocity();
+        RotateTowardsVelocity(leftLeg, rightLeg);
         VelocityWalk(leftLeg);
         VelocityWalk(rightLeg);
     }
@@ -99,30 +114,55 @@ public class MovementController : MonoBehaviour
     public void VelocityWalk(IkChain legChain)
     {
         // TODO:
-
-        
         RaycastHit hit;
-        if (Physics.Raycast(legChain.transform.position, Vector3.down, out hit, 100, layerMask))
-        {
-            //float distance = rb.velocity.magnitude * stepLength;
-            //Vector3 direction = rb.velocity.normalized;
 
-            legChain.Target.transform.position = hit.point;
-            //Gizmos.DrawSphere(hit.point += direction * distance, 0.1f);
-            //Gizmos.DrawSphere(hit.point -= direction * distance, 0.1f);
+        if (Physics.Raycast(legChain.root.transform.position, Vector3.down, out hit, 100, layerMask))
+        {
+            float distance = rb.velocity.magnitude * stepLength;
+            Vector3 direction = rb.velocity.normalized;
+
+            //legChain.Target.transform.position = hit.point;
+
+            var minForwardStep = hit.point += direction * distance;
+            var maxForwardStep = hit.point -= direction * distance;
+
+            var dir1 = (minForwardStep - legChain.transform.position).normalized;
+            var dir2 = (maxForwardStep - legChain.transform.position).normalized;
+
+            if (Physics.Raycast(legChain.root.transform.position, dir1, out hit, 100, layerMask))
+            {
+                legChain.minFeetDistance.transform.position = hit.point;
+            }
+
+            if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
+            {
+                legChain.maxFeetDistance.transform.position = hit.point;
+            }
         }
-        
     }
 
-    public void RotateTowardsVelocity()
+    public void RotateTowardsVelocity(IkChain leftChain, IkChain rightChain)
     {
+        Quaternion rotation;
+
         if (Vector3.Dot(rb.velocity, rb.transform.forward) > 0 && rb.velocity.magnitude > 0.1f)
         {
-            hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, Quaternion.LookRotation(rb.velocity), lerpSpeed);
+            rotation = Quaternion.LookRotation(rb.velocity);
         }
         else
         {
-            hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, Quaternion.LookRotation(-rb.velocity), lerpSpeed);
+            rotation = Quaternion.LookRotation(-rb.velocity);
+        }
+
+        hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, rotation, lerpSpeed);
+
+        for (int i = 0; i < leftChain.chain.Length; i++)
+        {
+            if (i != 0)
+            {
+                leftChain.chain[i].transform.rotation = rotation;
+                rightChain.chain[i].transform.rotation = rotation;
+            }
         }
 
         // deadzone fix for weird movements
@@ -170,7 +210,6 @@ public class MovementController : MonoBehaviour
             isLooking = true;
             lookVector = context.ReadValue<Vector2>();
         }
-
     }
 
     public bool Grounded()
@@ -184,5 +223,11 @@ public class MovementController : MonoBehaviour
         else { 
             return false;
         }
+    }
+
+    IEnumerator WalkDelay()
+    {
+        yield return new WaitForSeconds(delay);
+        canWalk = true;
     }
 } 
