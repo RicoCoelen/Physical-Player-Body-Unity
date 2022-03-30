@@ -121,8 +121,6 @@ public class MovementController : MonoBehaviour
             float distance = rb.velocity.magnitude * stepLength;
             Vector3 direction = rb.velocity.normalized;
 
-            //legChain.Target.transform.position = hit.point;
-
             var minForwardStep = hit.point += direction * distance;
             var maxForwardStep = hit.point -= direction * distance;
 
@@ -138,6 +136,17 @@ public class MovementController : MonoBehaviour
             {
                 legChain.maxFeetDistance.transform.position = hit.point;
             }
+
+            if(Random.Range(0,10) > 5)
+            {
+                legChain.Target.transform.position = Vector3.Lerp(legChain.maxFeetDistance.transform.position, legChain.Target.transform.position, lerpSpeed);
+                 
+            }
+            else
+            {
+                legChain.Target.transform.position = Vector3.Lerp(legChain.minFeetDistance.transform.position, legChain.Target.transform.position, lerpSpeed);
+            }
+            
         }
     }
 
