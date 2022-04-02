@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class IkChain : MonoBehaviour
 {
+    private Rigidbody rb;
+
     [Header("Bones")]
     [SerializeField] public GameObject root; // fill root bone
     [SerializeField] public GameObject[] chain;
@@ -13,15 +15,13 @@ public class IkChain : MonoBehaviour
     [Header("Points")]
     [SerializeField] public GameObject Target;
     [SerializeField] public GameObject Hint;
-    // 2 points to interpolate
-    public GameObject maxFeetDistance;
-    public GameObject minFeetDistance;
+    public GameObject maxFeetDistance; // 2 points to interpolate
+    public GameObject minFeetDistance;    
 
     [Header("Rotation Offset")]
     [SerializeField] private Vector3 offsetRotation; // offset if rotation weird
 
     // delta correction distance kinematics, and iteration precision
-
     public float delta = 0.001f;
     public int maxIterations = 5;
     public float attractionStrength = 5f;
@@ -35,10 +35,12 @@ public class IkChain : MonoBehaviour
 
         maxDistance = AddLengths(boneLength);
 
+        rb = GetComponent<Rigidbody>();
+
         // temp for now
         Hint = new GameObject($"{ transform.name }: Hint");
         Hint.transform.parent = this.transform;
-        Hint.transform.position = Hint.transform.position + transform.forward * 5;
+        Hint.transform.position = Hint.transform.position + transform.root.forward * 5;
 
         Target = new GameObject($"{ transform.name }: Target");
 
@@ -81,6 +83,7 @@ public class IkChain : MonoBehaviour
         if (distance > chainMaxSize + floorOffset)
         {
             StretchKinematics(chain, goal, chainLength);
+            RotateAllStretchedJoints(chain);
         }
         else
         {
@@ -94,7 +97,7 @@ public class IkChain : MonoBehaviour
                     break;
                 }
             }
-           // RotateAllJoints(chain);
+            RotateAllJoints(chain);
         }
     }
 
@@ -114,6 +117,17 @@ public class IkChain : MonoBehaviour
         }
     }
 
+    private void RotateAllStretchedJoints(GameObject[] chain)
+    {
+        for (int i = 0; i < chain.Length; i++)
+        {
+            if (i != 0)
+                break;
+
+            chain[i].transform.localRotation = Quaternion.identity;
+        }
+    }
+
     private void StretchKinematics(GameObject[] chain, GameObject target, float[] boneLength)
     {
         // get the direction
@@ -127,14 +141,10 @@ public class IkChain : MonoBehaviour
             if (i == 0)
             {
                 chain[i].transform.position = rootPos.transform.position;
-                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.forward);
-                chain[i].transform.Rotate(offsetRotation);
             }
             else
             {
                 chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
-                chain[i].transform.rotation = Quaternion.LookRotation(direction, transform.forward);
-                chain[i].transform.Rotate(offsetRotation);
             }
         }
 

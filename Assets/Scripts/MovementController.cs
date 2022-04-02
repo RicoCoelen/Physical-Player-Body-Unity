@@ -56,9 +56,9 @@ public class MovementController : MonoBehaviour
         controls.Player.Movement.canceled += HandleMovement;
 
         // look rotation
-        controls.Player.Look.started += HandleMouseMovement;
-        controls.Player.Look.performed += HandleMouseMovement;
-        controls.Player.Look.canceled += HandleMouseMovement;
+        controls.Player.Look.started += HandleLookMovement;
+        controls.Player.Look.performed += HandleLookMovement;
+        controls.Player.Look.canceled += HandleLookMovement;
 
         // jump
         controls.Player.Jump.started += Jump;
@@ -77,9 +77,9 @@ public class MovementController : MonoBehaviour
         controls.Player.Movement.canceled -= HandleMovement;
 
         // look rotation
-        controls.Player.Look.started -= HandleMouseMovement;
-        controls.Player.Look.performed -= HandleMouseMovement;
-        controls.Player.Look.canceled -= HandleMouseMovement;
+        controls.Player.Look.started -= HandleLookMovement;
+        controls.Player.Look.performed -= HandleLookMovement;
+        controls.Player.Look.canceled -= HandleLookMovement;
 
         // jump
         controls.Player.Jump.started -= Jump;
@@ -137,7 +137,7 @@ public class MovementController : MonoBehaviour
                 legChain.maxFeetDistance.transform.position = hit.point;
             }
 
-            if(Random.Range(0,10) > 5)
+            if(Random.Range(0,1000) > 500)
             {
                 legChain.Target.transform.position = Vector3.Lerp(legChain.maxFeetDistance.transform.position, legChain.Target.transform.position, lerpSpeed);
                  
@@ -146,7 +146,6 @@ public class MovementController : MonoBehaviour
             {
                 legChain.Target.transform.position = Vector3.Lerp(legChain.minFeetDistance.transform.position, legChain.Target.transform.position, lerpSpeed);
             }
-            
         }
     }
 
@@ -164,13 +163,13 @@ public class MovementController : MonoBehaviour
         }
 
         hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, rotation, lerpSpeed);
+     
 
         for (int i = 0; i < leftChain.chain.Length; i++)
         {
             if (i != 0)
             {
-                leftChain.chain[i].transform.rotation = rotation;
-                rightChain.chain[i].transform.rotation = rotation;
+                //var temp = Quaternion.Slerp(leftChain.chain[i].transform.rotation, rotation, lerpSpeed);
             }
         }
 
@@ -204,7 +203,7 @@ public class MovementController : MonoBehaviour
 
     }
 
-    public void HandleMouseMovement(InputAction.CallbackContext context)
+    public void HandleLookMovement(InputAction.CallbackContext context)
     {
         if (!gameObject.activeSelf)
             return;
@@ -232,11 +231,5 @@ public class MovementController : MonoBehaviour
         else { 
             return false;
         }
-    }
-
-    IEnumerator WalkDelay()
-    {
-        yield return new WaitForSeconds(delay);
-        canWalk = true;
     }
 } 
