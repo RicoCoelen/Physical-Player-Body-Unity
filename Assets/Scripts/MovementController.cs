@@ -21,17 +21,14 @@ public class MovementController : MonoBehaviour
     [SerializeField] private float movementSpeed = 1;
     [SerializeField] private float jumpHeight = 1;
     [SerializeField] private float maxSpeed = 10f;
-    private bool canWalk = true;
-    [SerializeField] private float delay = 0.5f;
-    private float timer;
-    [SerializeField]  private float delta;
+    [SerializeField] private float maxFootDistance = 1f;
 
     [Header("Ground variables")]
     [SerializeField] private bool isGrounded = true;
     [SerializeField] private float groundDistanceCheck = 0.1f;
     [SerializeField] private Vector3 offset;
     private int layerMask = 1 << 6;  // Bit shift the index of the layer (6) to get a bit mask
-    
+
     [Header("Bones")]
     [SerializeField] private GameObject upperSpine;
     [SerializeField] private GameObject middleSpine;
@@ -126,25 +123,22 @@ public class MovementController : MonoBehaviour
 
             var dir1 = (minForwardStep - legChain.transform.position).normalized;
             var dir2 = (maxForwardStep - legChain.transform.position).normalized;
-
-            if (Physics.Raycast(legChain.root.transform.position, dir1, out hit, 100, layerMask))
+           
+            if (Vector3.Distance(transform.root.transform.position, legChain.transform.position) > maxFootDistance)
             {
-                legChain.minFeetDistance.transform.position = hit.point;
-            }
-
-            if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
-            {
-                legChain.maxFeetDistance.transform.position = hit.point;
-            }
-
-            if(Random.Range(0,1000) > 500)
-            {
-                legChain.Target.transform.position = Vector3.Lerp(legChain.maxFeetDistance.transform.position, legChain.Target.transform.position, lerpSpeed);
-                 
+                if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
+                {
+                    legChain.Target.transform.position = hit.point + legChain.floorOffset;
+                    legChain.chain[2].transform.rotation = Quaternion.Euler(legChain.chain[2].transform.rotation.eulerAngles.x, legChain.chain[2].transform.rotation.eulerAngles.y, hit.transform.rotation.eulerAngles.z);
+                }
             }
             else
             {
-                legChain.Target.transform.position = Vector3.Lerp(legChain.minFeetDistance.transform.position, legChain.Target.transform.position, lerpSpeed);
+/*                if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
+                {
+                    legChain.maxFeetDistance.transform.position = hit.point + legChain.floorOffset;
+                    legChain.Target.transform.position = hit.point + legChain.floorOffset;
+                }*/
             }
         }
     }
@@ -231,5 +225,10 @@ public class MovementController : MonoBehaviour
         else { 
             return false;
         }
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.DrawWireSphere(transform.root.position, maxFootDistance);
     }
 } 

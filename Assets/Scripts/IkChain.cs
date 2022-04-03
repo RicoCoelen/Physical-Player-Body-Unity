@@ -19,13 +19,13 @@ public class IkChain : MonoBehaviour
     public GameObject minFeetDistance;    
 
     [Header("Rotation Offset")]
-    [SerializeField] private Vector3 offsetRotation; // offset if rotation weird
+    [SerializeField] public Vector3 offsetRotation; // offset if rotation weird
+    public Vector3 floorOffset = new Vector3(0, 0.125f, 0); // offset if rotation weird
 
     // delta correction distance kinematics, and iteration precision
     public float delta = 0.001f;
     public int maxIterations = 5;
     public float attractionStrength = 5f;
-    public float floorOffset = 0.125f;
 
     private void Awake()
     {
@@ -58,8 +58,6 @@ public class IkChain : MonoBehaviour
         for (int i = 0; i < chain.Length - 1; i++)
         {
             var tempLength = Vector3.Distance(chain[i].transform.position, chain[i + 1].transform.position);
-            if (i == chain.Length - 1)
-                tempLength += floorOffset;
             boneLength.Add(tempLength);
         }
         return boneLength.ToArray();
@@ -72,7 +70,6 @@ public class IkChain : MonoBehaviour
         {
             length += boneLength[i];
         }
-        length += floorOffset;
         return length;
     }
 
@@ -80,7 +77,7 @@ public class IkChain : MonoBehaviour
     {
         var distance = (chain[0].transform.position - goal.transform.position).magnitude;
 
-        if (distance > chainMaxSize + floorOffset)
+        if (distance > chainMaxSize + (floorOffset.y * 0.75))
         {
             StretchKinematics(chain, goal, chainLength);
             RotateAllStretchedJoints(chain);
@@ -112,19 +109,21 @@ public class IkChain : MonoBehaviour
             Quaternion newRotation = Quaternion.LookRotation(direction, transform.root.forward);
 
             // apply rotation with offset
+            chain[i].transform.rotation = Quaternion.identity;
             chain[i].transform.rotation = newRotation;
             chain[i].transform.Rotate(offsetRotation);
         }
     }
-
+    
     private void RotateAllStretchedJoints(GameObject[] chain)
     {
         for (int i = 0; i < chain.Length; i++)
         {
-            if (i != 0)
-                break;
+            if (chain.Length - 1 != i)
+            {
 
-            chain[i].transform.localRotation = Quaternion.identity;
+
+            }
         }
     }
 
