@@ -28,6 +28,8 @@ public class MovementController : MonoBehaviour
     [SerializeField] private float groundDistanceCheck = 0.1f;
     [SerializeField] private Vector3 offset;
     private int layerMask = 1 << 6;  // Bit shift the index of the layer (6) to get a bit mask
+    private Vector3 surfaceNormal; // current surface normal
+    private Vector3 myNormal; // character normal
 
     [Header("Bones")]
     [SerializeField] private GameObject upperSpine;
@@ -64,6 +66,8 @@ public class MovementController : MonoBehaviour
 
         // enable controls
         controls.Enable();
+
+        myNormal = transform.up; // normal starts as character up direction 
     }
 
     private void OnDestroy()
@@ -124,26 +128,60 @@ public class MovementController : MonoBehaviour
             var dir1 = (minForwardStep - legChain.transform.position).normalized;
             var dir2 = (maxForwardStep - legChain.transform.position).normalized;
            
-            if (Vector3.Distance(transform.root.transform.position, legChain.transform.position) > maxFootDistance)
+            // if outside area
+            if (Vector3.Distance(transform.root.transform.position, legChain.Target.transform.position) > maxFootDistance)
             {
+                // raycast to 
                 if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
                 {
                     legChain.Target.transform.position = hit.point + legChain.floorOffset;
-                    legChain.chain[2].transform.rotation = Quaternion.Euler(legChain.chain[2].transform.rotation.eulerAngles.x, legChain.chain[2].transform.rotation.eulerAngles.y, hit.transform.rotation.eulerAngles.z);
+                    ApplyFootIK(legChain);
                 }
             }
             else
             {
-/*                if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
-                {
-                    legChain.maxFeetDistance.transform.position = hit.point + legChain.floorOffset;
-                    legChain.Target.transform.position = hit.point + legChain.floorOffset;
-                }*/
+                ApplyFootIK(legChain);
             }
+/*            else
+            {
+                if (physics.raycast(legchain.root.transform.position, dir1, out hit, 100, layermask))
+                {
+                    legchain.maxfeetdistance.transform.position = hit.point + legchain.flooroffset;
+                    legchain.target.transform.position = hit.point + legchain.flooroffset;
+                }
+            }*/
         }
     }
 
-    public void RotateTowardsVelocity(IkChain leftChain, IkChain rightChain)
+    public void ApplyFootIK(IkChain IKchain)
+    {
+        RaycastHit hit;
+
+        if (Physics.Raycast(IKchain.chain[2].transform.position, Vector3.down, out hit, 100, layerMask))
+        {
+            if (isGrounded)
+            {
+                surfaceNormal = hit.normal;
+            }
+            else
+            {
+                surfaceNormal = Vector3.up;
+            }
+        }
+
+        myNormal = Vector3.Lerp(myNormal, surfaceNormal, lerpSpeed * Time.deltaTime);
+
+        // find forward direction with new myNormal:
+        var myForward = Vector3.Cross(transform.right, myNormal);
+
+        // align character to the new myNormal while keeping the forward direction:
+        var targetRot = Quaternion.LookRotation(myForward, myNormal);
+
+        // change rotation of last joint
+        IKchain.chain[2].transform.rotation = Quaternion.Lerp(transform.rotation, targetRot, lerpSpeed * Time.deltaTime);
+    }
+
+    public void RotateTowardsVelocity(IkChain leftChain, IkChain rightChain)    
     {
         Quaternion rotation;
 
@@ -156,7 +194,7 @@ public class MovementController : MonoBehaviour
             rotation = Quaternion.LookRotation(-rb.velocity);
         }
 
-        hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, rotation, lerpSpeed);
+        hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, rotation, lerpSpeed * Time.deltaTime);
      
 
         for (int i = 0; i < leftChain.chain.Length; i++)
