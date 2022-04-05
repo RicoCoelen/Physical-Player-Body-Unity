@@ -26,6 +26,7 @@ public class IkChain : MonoBehaviour
     public float delta = 0.001f;
     public int maxIterations = 5;
     public float attractionStrength = 5f;
+    public float chainLerpSpeed = 50f;
 
     private void Awake()
     {
@@ -39,16 +40,13 @@ public class IkChain : MonoBehaviour
 
         // temp for now
         Hint = new GameObject($"{ transform.name }: Hint");
-        Hint.transform.parent = this.transform;
+        Hint.transform.parent = transform.root.transform;
         Hint.transform.position = Hint.transform.position + transform.root.forward * 5;
 
         Target = new GameObject($"{ transform.name }: Target");
 
         maxFeetDistance = new GameObject($"{transform.name}: maxDistancePoint");
         maxFeetDistance.transform.parent = this.transform;
-        
-        minFeetDistance = new GameObject($"{ transform.name }: minDistancePoint");
-        minFeetDistance.transform.parent = this.transform;
     }
 
     private float[] getBoneLengths(GameObject[] chain)
@@ -121,8 +119,13 @@ public class IkChain : MonoBehaviour
         {
             if (chain.Length - 1 != i)
             {
+                var direction = (chain[i + 1].transform.position - chain[i].transform.position).normalized;
+                Quaternion newRotation = Quaternion.LookRotation(direction, transform.root.forward);
 
-
+                // apply rotation with offset
+                chain[i].transform.rotation = Quaternion.identity;
+                chain[i].transform.rotation = newRotation;
+                chain[i].transform.Rotate(offsetRotation);
             }
         }
     }
@@ -169,7 +172,7 @@ public class IkChain : MonoBehaviour
                 chain[i].transform.position = chain[i].transform.position + (newdirection * attractionStrength) * chainLength[i];
 
                 var direction = (chain[i].transform.position - chain[i + 1].transform.position).normalized;
-                chain[i].transform.position = chain[i + 1].transform.position + direction * chainLength[i];
+                chain[i].transform.position = Vector3.Lerp(chain[i].transform.position, chain[i + 1].transform.position + direction * chainLength[i], chainLerpSpeed * Time.deltaTime) ;
             }
         }
 
@@ -250,7 +253,6 @@ public class IkChain : MonoBehaviour
     {
         Gizmos.DrawSphere(Target.transform.position, 0.01f);
         Gizmos.DrawSphere(Hint.transform.position, 0.01f);
-        Gizmos.DrawSphere(minFeetDistance.transform.position, 0.01f);
         Gizmos.DrawSphere(maxFeetDistance.transform.position, 0.01f);
     }
 }

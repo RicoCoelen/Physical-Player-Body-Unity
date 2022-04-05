@@ -107,7 +107,7 @@ public class MovementController : MonoBehaviour
             // Debug.Log(lookVector); // TODO: fix looking around using delta
         }
 
-        RotateTowardsVelocity(leftLeg, rightLeg);
+        //RotateTowardsVelocity(leftLeg, rightLeg);
         VelocityWalk(leftLeg);
         VelocityWalk(rightLeg);
     }
@@ -119,13 +119,10 @@ public class MovementController : MonoBehaviour
 
         if (Physics.Raycast(legChain.root.transform.position, Vector3.down, out hit, 100, layerMask))
         {
-            float distance = rb.velocity.magnitude * stepLength;
             Vector3 direction = rb.velocity.normalized;
 
-            var minForwardStep = hit.point += direction * distance;
-            var maxForwardStep = hit.point -= direction * distance;
+            var maxForwardStep = hit.point += direction * (maxFootDistance * 0.7f);
 
-            var dir1 = (minForwardStep - legChain.transform.position).normalized;
             var dir2 = (maxForwardStep - legChain.transform.position).normalized;
            
             // if outside area
@@ -134,23 +131,14 @@ public class MovementController : MonoBehaviour
                 // raycast to 
                 if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
                 {
-                    legChain.Target.transform.position = hit.point + legChain.floorOffset;
-                    ApplyFootIK(legChain);
+                    legChain.maxFeetDistance.transform.position = hit.point + legChain.floorOffset;
                 }
+                legChain.Target.transform.position = hit.point + legChain.floorOffset;
             }
-            else
-            {
-                ApplyFootIK(legChain);
-            }
-/*            else
-            {
-                if (physics.raycast(legchain.root.transform.position, dir1, out hit, 100, layermask))
-                {
-                    legchain.maxfeetdistance.transform.position = hit.point + legchain.flooroffset;
-                    legchain.target.transform.position = hit.point + legchain.flooroffset;
-                }
-            }*/
+            ApplyFootIK(legChain);
         }
+
+        
     }
 
     public void ApplyFootIK(IkChain IKchain)
@@ -196,7 +184,6 @@ public class MovementController : MonoBehaviour
 
         hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, rotation, lerpSpeed * Time.deltaTime);
      
-
         for (int i = 0; i < leftChain.chain.Length; i++)
         {
             if (i != 0)
