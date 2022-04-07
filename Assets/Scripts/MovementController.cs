@@ -17,7 +17,6 @@ public class MovementController : MonoBehaviour
 
     [Header("Movement variables")]
     [SerializeField] private float lerpSpeed = 0.1f;
-    [SerializeField] private float stepLength = 1f;
     [SerializeField] private float movementSpeed = 1;
     [SerializeField] private float jumpHeight = 1;
     [SerializeField] private float maxSpeed = 10f;
@@ -40,8 +39,6 @@ public class MovementController : MonoBehaviour
     [Header("Limbs")]
     [SerializeField] private IkChain leftLeg;
     [SerializeField] private IkChain rightLeg;
-    [SerializeField] private IkChain leftArm;
-    [SerializeField] private IkChain rightArm;
 
     private void Awake()
     {
@@ -68,6 +65,8 @@ public class MovementController : MonoBehaviour
         controls.Enable();
 
         myNormal = transform.up; // normal starts as character up direction 
+
+        leftLeg.currentLeg = true;
     }
 
     private void OnDestroy()
@@ -108,24 +107,29 @@ public class MovementController : MonoBehaviour
         }
 
         //RotateTowardsVelocity(leftLeg, rightLeg);
+       
+        if (rb.velocity.magnitude > 0.1f)
+        {
+            VelocityWalk(leftLeg);
+            VelocityWalk(rightLeg);
+        }
 
-        VelocityWalk(leftLeg);
-        VelocityWalk(rightLeg);
+        ApplyFootIK(leftLeg);
+        ApplyFootIK(rightLeg);
     }
 
     public void VelocityWalk(IkChain legChain)
     {
-        // TODO:
         RaycastHit hit;
 
         if (Physics.Raycast(legChain.root.transform.position, Vector3.down, out hit, 100, layerMask))
         {
             Vector3 direction = rb.velocity.normalized;
 
-            var maxForwardStep = hit.point += direction * (maxFootDistance * 0.7f);
+            var maxForwardStep = hit.point += direction * (maxFootDistance * 0.9f);
 
             var dir2 = (maxForwardStep - legChain.transform.position).normalized;
-           
+
             // if outside area
             if (Vector3.Distance(transform.root.transform.position, legChain.Target.transform.position) > maxFootDistance)
             {
@@ -135,9 +139,9 @@ public class MovementController : MonoBehaviour
                     legChain.newpos = hit.point + legChain.floorOffset;
                 }
             }
-            ApplyFootIK(legChain);
         }
-        legChain.Target.transform.position = Vector3.Lerp(legChain.Target.transform.position, legChain.newpos, lerpSpeed * Time.deltaTime);
+        
+        legChain.Target.transform.position = Vector3.Slerp(legChain.Target.transform.position, legChain.newpos, lerpSpeed * Time.deltaTime);
     }
 
     public void ApplyFootIK(IkChain IKchain)

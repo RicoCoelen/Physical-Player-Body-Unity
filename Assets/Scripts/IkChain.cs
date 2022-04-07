@@ -22,10 +22,13 @@ public class IkChain : MonoBehaviour
     public Vector3 floorOffset = new Vector3(0, 0.125f, 0); // offset if rotation weird
 
     // delta correction distance kinematics, and iteration precision
+    [Header("IK Variables")]
     public float delta = 0.001f;
     public int maxIterations = 5;
     public float attractionStrength = 5f;
     public float chainLerpSpeed = 50f;
+    public bool currentLeg = false;
+
 
     private void Awake()
     {
@@ -71,7 +74,7 @@ public class IkChain : MonoBehaviour
     {
         var distance = (chain[0].transform.position - goal.transform.position).magnitude;
 
-        if (distance > chainMaxSize + (floorOffset.y * 0.75))
+        if (distance > chainMaxSize + (floorOffset.y * 0.9f)) // minimal stretching
         {
             StretchKinematics(chain, goal, chainLength);
             RotateAllStretchedJoints(chain);
@@ -88,9 +91,9 @@ public class IkChain : MonoBehaviour
                     break;
                 }
             }
-            RotateAllJoints(chain);
         }
-        
+        RotateAllJoints(chain);
+
     }
 
     private void RotateAllJoints(GameObject[] chain)
