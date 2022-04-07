@@ -132,11 +132,12 @@ public class MovementController : MonoBehaviour
                 // raycast to 
                 if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
                 {
-                    legChain.Target.transform.position = hit.point + legChain.floorOffset;
+                    legChain.newpos = hit.point + legChain.floorOffset;
                 }
             }
             ApplyFootIK(legChain);
         }
+        legChain.Target.transform.position = Vector3.Lerp(legChain.Target.transform.position, legChain.newpos, lerpSpeed * Time.deltaTime);
     }
 
     public void ApplyFootIK(IkChain IKchain)

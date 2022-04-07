@@ -9,15 +9,13 @@ public class IkChain : MonoBehaviour
     [Header("Bones")]
     [SerializeField] public GameObject root; // fill root bone
     [SerializeField] public GameObject[] chain;
-    [SerializeField] public Quaternion[] start_rotation;
-    [SerializeField] public Vector3[] start_position;
-    [SerializeField] public Vector3[] start_direction;
     [SerializeField] private float[] boneLength;    
     [SerializeField] public float maxDistance; // total bone length
 
     [Header("Points")]
     [SerializeField] public GameObject Target;
     [SerializeField] public GameObject Hint;
+    [SerializeField] public Vector3 newpos;
 
     [Header("Rotation Offset")]
     [SerializeField] public Vector3 offsetRotation; // offset if rotation weird
@@ -90,8 +88,9 @@ public class IkChain : MonoBehaviour
                     break;
                 }
             }
+            RotateAllJoints(chain);
         }
-        RotateAllJoints(chain);
+        
     }
 
     private void RotateAllJoints(GameObject[] chain)
@@ -101,19 +100,13 @@ public class IkChain : MonoBehaviour
             if (chain.Length - 1 == i)
                 break;
 
-            //var direction = chain[i + 1].transform.position - chain[i].transform.position;
-            //Quaternion newRotation = Quaternion.LookRotation(direction.normalized, chain[i].transform.forward);
-
-            //newRotation *= Quaternion.FromToRotation(Vector3.left, Vector3.forward);
+            var direction = chain[i + 1].transform.position - chain[i].transform.position;
+            Quaternion newRotation = Quaternion.LookRotation(direction.normalized, chain[i].transform.forward);
 
             // apply rotation with offset
-            //chain[i].transform.rotation = Quaternion.identity;
-            //chain[i].transform.rotation = newRotation;
-            //chain[i].transform.Rotate(offsetRotation);
-  
-
-            var targetRotation = Quaternion.FromToRotation(start_direction[i], start_position[i + 1] - start_position[i]);
-            chain[i].transform.rotation = targetRotation * start_rotation[i];
+            chain[i].transform.rotation = Quaternion.identity;
+            chain[i].transform.rotation = newRotation;
+            chain[i].transform.Rotate(offsetRotation);
         }
     }
     
@@ -239,24 +232,15 @@ public class IkChain : MonoBehaviour
         var legChain = new List<GameObject>();
 
         // add upper hip
-        start_rotation[0] = root.transform.rotation;
-        start_position[0] = root.transform.position;
         legChain.Add(root);
 
         // get/add knee
         var knee = root.transform.GetChild(0).gameObject;
-        start_rotation[1] = knee.transform.rotation;
-        start_position[1] = knee.transform.position;
         legChain.Add(knee);
 
         // get/add foot
         var foot = knee.transform.GetChild(0).gameObject;
-        start_rotation[2] = foot.transform.rotation;
-        start_position[2] = foot.transform.position;
         legChain.Add(foot);
-
-        start_direction[0] = root.transform.position - knee.transform.position;
-        start_direction[1] = knee.transform.position - foot.transform.position;
 
         // to array
         return legChain.ToArray();
