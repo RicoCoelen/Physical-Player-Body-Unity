@@ -9,14 +9,15 @@ public class IkChain : MonoBehaviour
     [Header("Bones")]
     [SerializeField] public GameObject root; // fill root bone
     [SerializeField] public GameObject[] chain;
+    [SerializeField] public Quaternion[] start_rotation;
+    [SerializeField] public Vector3[] start_position;
+    [SerializeField] public Vector3[] start_direction;
     [SerializeField] private float[] boneLength;    
-    [SerializeField] private float maxDistance; // total bone length
+    [SerializeField] public float maxDistance; // total bone length
 
     [Header("Points")]
     [SerializeField] public GameObject Target;
     [SerializeField] public GameObject Hint;
-    public GameObject maxFeetDistance; // 2 points to interpolate
-    public GameObject minFeetDistance;    
 
     [Header("Rotation Offset")]
     [SerializeField] public Vector3 offsetRotation; // offset if rotation weird
@@ -41,12 +42,9 @@ public class IkChain : MonoBehaviour
         // temp for now
         Hint = new GameObject($"{ transform.name }: Hint");
         Hint.transform.parent = transform.root.transform;
-        Hint.transform.position = Hint.transform.position + transform.root.forward * 5;
+        Hint.transform.position = Hint.transform.position + transform.root.forward * 1;
 
         Target = new GameObject($"{ transform.name }: Target");
-
-        maxFeetDistance = new GameObject($"{transform.name}: maxDistancePoint");
-        maxFeetDistance.transform.parent = this.transform;
     }
 
     private float[] getBoneLengths(GameObject[] chain)
@@ -87,13 +85,13 @@ public class IkChain : MonoBehaviour
                 BackwardKineMatic(chain, goal, hint, chainLength);
                 ForwardKineMatic(chain, chainLength);
 
-                if ((chain[chain.Length - 1].transform.position - goal.transform.position).sqrMagnitude < delta * delta)
+                if ((chain[chain.Length - 1].transform.position - goal.transform.position).sqrMagnitude < delta)
                 {
                     break;
                 }
             }
-            RotateAllJoints(chain);
         }
+        RotateAllJoints(chain);
     }
 
     private void RotateAllJoints(GameObject[] chain)
@@ -103,13 +101,19 @@ public class IkChain : MonoBehaviour
             if (chain.Length - 1 == i)
                 break;
 
-            var direction = (chain[i + 1].transform.position - chain[i].transform.position).normalized;
-            Quaternion newRotation = Quaternion.LookRotation(direction, transform.root.forward);
+            //var direction = chain[i + 1].transform.position - chain[i].transform.position;
+            //Quaternion newRotation = Quaternion.LookRotation(direction.normalized, chain[i].transform.forward);
+
+            //newRotation *= Quaternion.FromToRotation(Vector3.left, Vector3.forward);
 
             // apply rotation with offset
-            chain[i].transform.rotation = Quaternion.identity;
-            chain[i].transform.rotation = newRotation;
-            chain[i].transform.Rotate(offsetRotation);
+            //chain[i].transform.rotation = Quaternion.identity;
+            //chain[i].transform.rotation = newRotation;
+            //chain[i].transform.Rotate(offsetRotation);
+  
+
+            var targetRotation = Quaternion.FromToRotation(start_direction[i], start_position[i + 1] - start_position[i]);
+            chain[i].transform.rotation = targetRotation * start_rotation[i];
         }
     }
     
@@ -163,7 +167,7 @@ public class IkChain : MonoBehaviour
             if (i == chain.Length - 1)
             {
                 //chain[i].transform.position = goal.transform.position;
-                chain[i].transform.position = Vector3.MoveTowards(chain[i].transform.position, goal.transform.position, chainLength[i - 1]);
+                chain[i].transform.position = Vector3.MoveTowards(chain[i].transform.position, goal.transform.position, maxDistance);
             }
             else
             {
@@ -171,8 +175,9 @@ public class IkChain : MonoBehaviour
                 var newdirection = (hint.transform.position - chain[i].transform.position).normalized;
                 chain[i].transform.position = chain[i].transform.position + (newdirection * attractionStrength) * chainLength[i];
 
+                // put current joint in the right postition
                 var direction = (chain[i].transform.position - chain[i + 1].transform.position).normalized;
-                chain[i].transform.position = Vector3.Lerp(chain[i].transform.position, chain[i + 1].transform.position + direction * chainLength[i], chainLerpSpeed * Time.deltaTime) ;
+                chain[i].transform.position = chain[i + 1].transform.position + direction * chainLength[i];
             }
         }
 
@@ -234,16 +239,24 @@ public class IkChain : MonoBehaviour
         var legChain = new List<GameObject>();
 
         // add upper hip
+        start_rotation[0] = root.transform.rotation;
+        start_position[0] = root.transform.position;
         legChain.Add(root);
-        Debug.Log(root);
 
         // get/add knee
         var knee = root.transform.GetChild(0).gameObject;
+        start_rotation[1] = knee.transform.rotation;
+        start_position[1] = knee.transform.position;
         legChain.Add(knee);
 
         // get/add foot
         var foot = knee.transform.GetChild(0).gameObject;
+        start_rotation[2] = foot.transform.rotation;
+        start_position[2] = foot.transform.position;
         legChain.Add(foot);
+
+        start_direction[0] = root.transform.position - knee.transform.position;
+        start_direction[1] = knee.transform.position - foot.transform.position;
 
         // to array
         return legChain.ToArray();
@@ -253,7 +266,6 @@ public class IkChain : MonoBehaviour
     {
         Gizmos.DrawSphere(Target.transform.position, 0.01f);
         Gizmos.DrawSphere(Hint.transform.position, 0.01f);
-        Gizmos.DrawSphere(maxFeetDistance.transform.position, 0.01f);
     }
 }
 

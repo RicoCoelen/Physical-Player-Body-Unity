@@ -108,6 +108,7 @@ public class MovementController : MonoBehaviour
         }
 
         //RotateTowardsVelocity(leftLeg, rightLeg);
+
         VelocityWalk(leftLeg);
         VelocityWalk(rightLeg);
     }
@@ -131,14 +132,11 @@ public class MovementController : MonoBehaviour
                 // raycast to 
                 if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
                 {
-                    legChain.maxFeetDistance.transform.position = hit.point + legChain.floorOffset;
+                    legChain.Target.transform.position = hit.point + legChain.floorOffset;
                 }
-                legChain.Target.transform.position = hit.point + legChain.floorOffset;
             }
             ApplyFootIK(legChain);
         }
-
-        
     }
 
     public void ApplyFootIK(IkChain IKchain)
@@ -169,7 +167,7 @@ public class MovementController : MonoBehaviour
         IKchain.chain[2].transform.rotation = Quaternion.Lerp(transform.rotation, targetRot, lerpSpeed * Time.deltaTime);
     }
 
-    public void RotateTowardsVelocity(IkChain leftChain, IkChain rightChain)    
+    public void RotateTowardsVelocity()    
     {
         Quaternion rotation;
 
@@ -183,14 +181,6 @@ public class MovementController : MonoBehaviour
         }
 
         hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, rotation, lerpSpeed * Time.deltaTime);
-     
-        for (int i = 0; i < leftChain.chain.Length; i++)
-        {
-            if (i != 0)
-            {
-                //var temp = Quaternion.Slerp(leftChain.chain[i].transform.rotation, rotation, lerpSpeed);
-            }
-        }
 
         // deadzone fix for weird movements
 
