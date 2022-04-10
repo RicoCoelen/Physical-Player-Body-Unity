@@ -72,7 +72,7 @@ public class IkChain : MonoBehaviour
     {
         var distance = (chain[0].transform.position - goal.transform.position).magnitude;
 
-        if (distance > chainMaxSize + (floorOffset.y * 0.9f)) // minimal stretching
+        if (distance > chainMaxSize + floorOffset.y) // minimal stretching
         {
             StretchKinematics(chain, goal, chainLength);
             //StretchRotate(chain, goal);

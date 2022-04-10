@@ -3,8 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Animations.Rigging;
 
-public class MovementController : MonoBehaviour
+public class MovementControllerAnimationRigging : MonoBehaviour
 {
     private Rigidbody rb;
 
@@ -27,24 +28,23 @@ public class MovementController : MonoBehaviour
     [Header("Ground variables")]
     [SerializeField] private bool isGrounded = true;
     [SerializeField] private float groundDistanceCheck = 0.1f;
+    [SerializeField] private Vector3 floorOffset;
+
     [SerializeField] private Vector3 offset;
     [SerializeField] private Vector3 sLeftOffset;
     [SerializeField] private Vector3 sRightOffset;
     [SerializeField] private Vector3 leftOffset;
     [SerializeField] private Vector3 rightOffset;
+
+    [SerializeField] private Vector3 leftNewPos;
+    [SerializeField] private Vector3 rightNewPos;
     private int layerMask = 1 << 6;  // Bit shift the index of the layer (6) to get a bit mask
     private Vector3 surfaceNormal; // current surface normal
     private Vector3 myNormal; // character normal
 
-    [Header("Bones")]
-    [SerializeField] private GameObject upperSpine;
-    [SerializeField] private GameObject middleSpine;
-    [SerializeField] private GameObject lowerSpine;
-    [SerializeField] private GameObject hips;
-
     [Header("Limbs")]
-    [SerializeField] private IkChain leftLeg;
-    [SerializeField] private IkChain rightLeg;
+    [SerializeField] private TwoBoneIKConstraint leftLeg;
+    [SerializeField] private TwoBoneIKConstraint rightLeg;
 
     private void Awake()
     {
@@ -115,69 +115,97 @@ public class MovementController : MonoBehaviour
         if (rb.velocity.magnitude > 0.1f)
         {
             var direction = Vector3.Dot(transform.root.right, rb.velocity.normalized);
-            Debug.Log(direction);
 
             if (direction > 0.5f || direction < -0.5f)    {
-                VelocityWalk(leftLeg, sLeftOffset);
-                VelocityWalk(rightLeg, sRightOffset);
+                VelocityWalk(leftLeg, sLeftOffset, true);
+                VelocityWalk(rightLeg, sRightOffset, false);
             }
             else
             {
-                VelocityWalk(leftLeg, Vector3.zero);
-                VelocityWalk(rightLeg, Vector3.zero);
+                VelocityWalk(leftLeg, Vector3.zero, true);
+                VelocityWalk(rightLeg, Vector3.zero, false);
             }
         }
         else
         {
-            ResetWalk(leftLeg, leftOffset);
-            ResetWalk(rightLeg, rightOffset);
+            ResetWalk(leftLeg, leftOffset, true);
+            ResetWalk(rightLeg, rightOffset, false);
         }
 
         ApplyFootIK(leftLeg);
         ApplyFootIK(rightLeg);
     }
 
-    public void ResetWalk(IkChain leg, Vector3 legOffset)
+    public void ResetWalk(TwoBoneIKConstraint leg, Vector3 legOffset, bool leftLeg)
     {
         RaycastHit hit;
 
-        if (Physics.Raycast(leg.root.transform.position + legOffset, Vector3.down, out hit, 100, layerMask))
+        if (Physics.Raycast(leg.data.root.transform.position + legOffset, Vector3.down, out hit, 100, layerMask))
         {
-            leg.newpos = hit.point + leg.floorOffset;
+            if (leftLeg)
+            {
+                leftNewPos = hit.point + floorOffset;
+            }
+            else
+            {
+                rightNewPos = hit.point + floorOffset;
+            }
         }
-        leg.Target.transform.position = Vector3.Slerp(leg.Target.transform.position, leg.newpos, lerpSpeed * Time.deltaTime);
+
+        if (leftLeg)
+        {
+            leg.data.target.transform.position = Vector3.Slerp(leg.data.target.transform.position, leftNewPos, lerpSpeed * Time.deltaTime);
+        }
+        else
+        {
+            leg.data.target.transform.position = Vector3.Slerp(leg.data.target.transform.position, rightNewPos, lerpSpeed * Time.deltaTime);
+        }
     }
 
-    public void VelocityWalk(IkChain leg, Vector3 legOffset)
+    public void VelocityWalk(TwoBoneIKConstraint leg, Vector3 legOffset, bool leftLeg)
     {
         RaycastHit hit;
 
-        if (Physics.Raycast(leg.root.transform.position, Vector3.down, out hit, 100, layerMask))
+        if (Physics.Raycast(leg.data.root.transform.position, Vector3.down, out hit, 100, layerMask))
         {
             Vector3 direction = rb.velocity.normalized;
 
             var maxForwardStep = hit.point + legOffset + direction * maxFootDistance;
 
-            var dir2 = (maxForwardStep - leg.transform.position).normalized;
+            var dir2 = (maxForwardStep - leg.data.root.transform.position).normalized;
 
-            // if outside area
-            if (Vector3.Distance(transform.root.transform.position + legOffset, leg.Target.transform.position) > maxFootDistance)
+            // if outside area 
+            if (Vector3.Distance(transform.root.transform.position + legOffset, leg.data.target.transform.position) > maxFootDistance)
             {
                 // raycast on object if higher
-                if (Physics.Raycast(leg.root.transform.position, dir2, out hit, 100, layerMask))
+                if (Physics.Raycast(leg.data.root.transform.position, dir2, out hit, 100, layerMask))
                 {
-                    leg.newpos = hit.point + leg.floorOffset;
+                    //leg.newpos = hit.point + leg.floorOffset;
+                    if (leftLeg)
+                    {
+                        leftNewPos = hit.point + floorOffset;
+                    }
+                    else {
+                        rightNewPos = hit.point + floorOffset;
+                    }
                 }
             }
         }
-        leg.Target.transform.position = Vector3.Slerp(leg.Target.transform.position, leg.newpos, lerpSpeed * Time.deltaTime);
+        if (leftLeg)
+        {
+            leg.data.target.transform.position = Vector3.Slerp(leg.data.target.transform.position, leftNewPos, lerpSpeed * Time.deltaTime);
+        }
+        else
+        {
+            leg.data.target.transform.position = Vector3.Slerp(leg.data.target.transform.position, rightNewPos, lerpSpeed * Time.deltaTime);
+        }
     }
 
-    public void ApplyFootIK(IkChain leg)
+    public void ApplyFootIK(TwoBoneIKConstraint leg)
     {
         RaycastHit hit;
 
-        if (Physics.Raycast(leg.chain[2].transform.position, Vector3.down, out hit, 100, layerMask))
+        if (Physics.Raycast(leg.data.tip.transform.position, transform.TransformDirection(Vector3.down), out hit, 100, layerMask))
         {
             if (isGrounded)
             {
@@ -198,26 +226,7 @@ public class MovementController : MonoBehaviour
         var targetRot = Quaternion.LookRotation(myForward, myNormal);
 
         // change rotation of last joint
-        leg.chain[2].transform.rotation = Quaternion.Lerp(leg.chain[2].transform.rotation, targetRot, lerpSpeed * Time.deltaTime);
-    }
-
-    public void RotateTowardsVelocity()    
-    {
-        Quaternion rotation;
-
-        if (Vector3.Dot(rb.velocity, rb.transform.forward) > 0 && rb.velocity.magnitude > 0.1f)
-        {
-            rotation = Quaternion.LookRotation(rb.velocity);
-        }
-        else
-        {
-            rotation = Quaternion.LookRotation(-rb.velocity);
-        }
-
-        hips.transform.rotation = Quaternion.Slerp(hips.transform.rotation, rotation, lerpSpeed * Time.deltaTime);
-
-        // then rotate upper body towards front capsule
-        upperSpine.transform.rotation = transform.root.rotation;
+        leg.data.tip.transform.rotation = Quaternion.Lerp(leg.data.tip.transform.rotation, targetRot, lerpSpeed * Time.deltaTime);
     }
 
     public void Jump(InputAction.CallbackContext context)
@@ -291,5 +300,7 @@ public class MovementController : MonoBehaviour
             Gizmos.DrawWireSphere(transform.root.position + leftOffset, maxFootDistance);
             Gizmos.DrawWireSphere(transform.root.position + rightOffset, maxFootDistance);
         }
+        Gizmos.DrawSphere(leftNewPos, 0.1f);
+        Gizmos.DrawSphere(rightNewPos, 0.1f);
     }
 } 
