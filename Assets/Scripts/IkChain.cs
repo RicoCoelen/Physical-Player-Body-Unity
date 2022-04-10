@@ -27,8 +27,6 @@ public class IkChain : MonoBehaviour
     public int maxIterations = 5;
     public float attractionStrength = 5f;
     public float chainLerpSpeed = 50f;
-    public bool currentLeg = false;
-
 
     private void Awake()
     {
@@ -77,7 +75,7 @@ public class IkChain : MonoBehaviour
         if (distance > chainMaxSize + (floorOffset.y * 0.9f)) // minimal stretching
         {
             StretchKinematics(chain, goal, chainLength);
-            RotateAllStretchedJoints(chain);
+            //StretchRotate(chain, goal);
         }
         else
         {
@@ -91,9 +89,9 @@ public class IkChain : MonoBehaviour
                     break;
                 }
             }
+            
         }
         RotateAllJoints(chain);
-
     }
 
     private void RotateAllJoints(GameObject[] chain)
@@ -112,21 +110,28 @@ public class IkChain : MonoBehaviour
             chain[i].transform.Rotate(offsetRotation);
         }
     }
-    
-    private void RotateAllStretchedJoints(GameObject[] chain)
-    {
-        for (int i = 0; i < chain.Length; i++)
-        {
-            if (chain.Length - 1 != i)
-            {
-                var direction = (chain[i + 1].transform.position - chain[i].transform.position).normalized;
-                Quaternion newRotation = Quaternion.LookRotation(direction, transform.root.forward);
 
-                // apply rotation with offset
-                chain[i].transform.rotation = Quaternion.identity;
-                chain[i].transform.rotation = newRotation;
-                chain[i].transform.Rotate(offsetRotation);
-            }
+    public void StretchRotate(GameObject[] chain, GameObject target)
+    {
+        // get the direction
+        var direction = (target.transform.position - chain[0].transform.position).normalized;
+
+        // add rotation offset to match
+        if (Vector3.Dot(direction, transform.forward) > 0)
+        {
+            // rotate hip towards target
+            Quaternion newRotation = Quaternion.AngleAxis(maxDistance, Vector3.forward) * Quaternion.LookRotation(direction);
+            // apply rotation with offset
+            chain[0].transform.rotation = new Quaternion(newRotation.x, newRotation.y, newRotation.z, newRotation.w);
+            chain[0].transform.Rotate(-90, 0, 0);
+        }
+        else
+        {
+            // rotate hip towards target
+            Quaternion newRotation = Quaternion.AngleAxis(maxDistance, Vector3.forward) * Quaternion.LookRotation(-direction);
+            // apply rotation with offset
+            chain[0].transform.rotation = new Quaternion(newRotation.x, newRotation.y, newRotation.z, newRotation.w);
+            chain[0].transform.Rotate(90, 0, 0);
         }
     }
 
@@ -149,7 +154,6 @@ public class IkChain : MonoBehaviour
                 chain[i].transform.position = chain[i - 1].transform.position + direction * boneLength[i - 1];
             }
         }
-
         // put hip in the original position
         chain[0] = rootPos;
     }

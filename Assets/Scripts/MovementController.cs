@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -21,11 +22,17 @@ public class MovementController : MonoBehaviour
     [SerializeField] private float jumpHeight = 1;
     [SerializeField] private float maxSpeed = 10f;
     [SerializeField] private float maxFootDistance = 1f;
+    [SerializeField] private float stepHeight = 0.1f;
+
 
     [Header("Ground variables")]
     [SerializeField] private bool isGrounded = true;
     [SerializeField] private float groundDistanceCheck = 0.1f;
     [SerializeField] private Vector3 offset;
+    [SerializeField] private Vector3 sLeftOffset;
+    [SerializeField] private Vector3 sRightOffset;
+    [SerializeField] private Vector3 leftOffset;
+    [SerializeField] private Vector3 rightOffset;
     private int layerMask = 1 << 6;  // Bit shift the index of the layer (6) to get a bit mask
     private Vector3 surfaceNormal; // current surface normal
     private Vector3 myNormal; // character normal
@@ -65,8 +72,6 @@ public class MovementController : MonoBehaviour
         controls.Enable();
 
         myNormal = transform.up; // normal starts as character up direction 
-
-        leftLeg.currentLeg = true;
     }
 
     private void OnDestroy()
@@ -110,45 +115,70 @@ public class MovementController : MonoBehaviour
        
         if (rb.velocity.magnitude > 0.1f)
         {
-            VelocityWalk(leftLeg);
-            VelocityWalk(rightLeg);
+            var direction = Vector3.Dot(transform.root.right, rb.velocity.normalized);
+            Debug.Log(direction);
+
+            if (direction > 0.5f || direction < -0.5f)    {
+                VelocityWalk(leftLeg, sLeftOffset);
+                VelocityWalk(rightLeg, sRightOffset);
+            }
+            else
+            {
+                VelocityWalk(leftLeg, Vector3.zero);
+                VelocityWalk(rightLeg, Vector3.zero);
+            }
+        }
+        else
+        {
+            ResetWalk(leftLeg, leftOffset);
+            ResetWalk(rightLeg, rightOffset);
         }
 
         ApplyFootIK(leftLeg);
         ApplyFootIK(rightLeg);
     }
 
-    public void VelocityWalk(IkChain legChain)
+    public void ResetWalk(IkChain leg, Vector3 legOffset)
     {
         RaycastHit hit;
 
-        if (Physics.Raycast(legChain.root.transform.position, Vector3.down, out hit, 100, layerMask))
+        if (Physics.Raycast(leg.root.transform.position + legOffset, Vector3.down, out hit, 100, layerMask))
+        {
+            leg.newpos = hit.point + leg.floorOffset;
+        }
+        leg.Target.transform.position = Vector3.Slerp(leg.Target.transform.position, leg.newpos, lerpSpeed * Time.deltaTime);
+    }
+
+    public void VelocityWalk(IkChain leg, Vector3 legOffset)
+    {
+        RaycastHit hit;
+
+        if (Physics.Raycast(leg.root.transform.position, Vector3.down, out hit, 100, layerMask))
         {
             Vector3 direction = rb.velocity.normalized;
 
-            var maxForwardStep = hit.point += direction * (maxFootDistance * 0.9f);
+            var maxForwardStep = hit.point + legOffset + direction * maxFootDistance;
 
-            var dir2 = (maxForwardStep - legChain.transform.position).normalized;
+            var dir2 = (maxForwardStep - leg.transform.position).normalized;
 
             // if outside area
-            if (Vector3.Distance(transform.root.transform.position, legChain.Target.transform.position) > maxFootDistance)
+            if (Vector3.Distance(transform.root.transform.position + legOffset, leg.Target.transform.position) > maxFootDistance)
             {
-                // raycast to 
-                if (Physics.Raycast(legChain.root.transform.position, dir2, out hit, 100, layerMask))
+                // raycast on object if higher
+                if (Physics.Raycast(leg.root.transform.position, dir2, out hit, 100, layerMask))
                 {
-                    legChain.newpos = hit.point + legChain.floorOffset;
+                    leg.newpos = hit.point + leg.floorOffset;
                 }
             }
         }
-        
-        legChain.Target.transform.position = Vector3.Slerp(legChain.Target.transform.position, legChain.newpos, lerpSpeed * Time.deltaTime);
+        leg.Target.transform.position = Vector3.Slerp(leg.Target.transform.position, leg.newpos, lerpSpeed * Time.deltaTime);
     }
 
-    public void ApplyFootIK(IkChain IKchain)
+    public void ApplyFootIK(IkChain leg)
     {
         RaycastHit hit;
 
-        if (Physics.Raycast(IKchain.chain[2].transform.position, Vector3.down, out hit, 100, layerMask))
+        if (Physics.Raycast(leg.chain[2].transform.position, Vector3.down, out hit, 100, layerMask))
         {
             if (isGrounded)
             {
@@ -169,7 +199,7 @@ public class MovementController : MonoBehaviour
         var targetRot = Quaternion.LookRotation(myForward, myNormal);
 
         // change rotation of last joint
-        IKchain.chain[2].transform.rotation = Quaternion.Lerp(transform.rotation, targetRot, lerpSpeed * Time.deltaTime);
+        leg.chain[2].transform.rotation = Quaternion.Lerp(leg.chain[2].transform.rotation, targetRot, lerpSpeed * Time.deltaTime);
     }
 
     public void RotateTowardsVelocity()    
@@ -195,8 +225,15 @@ public class MovementController : MonoBehaviour
 
     public void Jump(InputAction.CallbackContext context)
     {
-        if(isGrounded)
+        if (isGrounded && rb.velocity.magnitude > 0.1f)
+        {
             rb.AddForce(Vector3.up * jumpHeight, ForceMode.Impulse);
+        }
+        else
+        {
+            rb.AddForce(Vector3.up * (jumpHeight * rb.velocity.magnitude) , ForceMode.Impulse);
+        }
+
     }
 
     public void HandleMovement(InputAction.CallbackContext context)
@@ -249,6 +286,7 @@ public class MovementController : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        Gizmos.DrawWireSphere(transform.root.position, maxFootDistance);
+        Gizmos.DrawWireSphere(transform.root.position + sLeftOffset, maxFootDistance);
+        Gizmos.DrawWireSphere(transform.root.position + sRightOffset, maxFootDistance);
     }
 } 
